@@ -1,0 +1,777 @@
+openapi: 3.0.0
+info:
+  title: Eventify Backend API
+  description: A C# ASP.NET Core API for managing events, tasks, budgets, and archives.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+      required:
+        - id
+        - email
+    Event:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+          format: date-time
+        userId:
+          type: integer
+      required:
+        - id
+        - title
+        - date
+        - userId
+    EventTask:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        dueDate:
+          type: string
+          format: date-time
+        eventId:
+          type: integer
+        userId:
+          type: integer
+      required:
+        - id
+        - title
+        - eventId
+        - userId
+    Budget:
+      type: object
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+        amount:
+          type: number
+          format: float
+        eventId:
+          type: integer
+        userId:
+          type: integer
+      required:
+        - id
+        - category
+        - amount
+        - eventId
+        - userId
+    Archive:
+      type: object
+      properties:
+        id:
+          type: integer
+        eventId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+          format: date-time
+        userId:
+          type: integer
+      required:
+        - id
+        - eventId
+        - title
+        - date
+        - userId
+
+security:
+  - BearerAuth: []
+
+paths:
+  /:
+    get:
+      summary: Test endpoint
+      description: A simple endpoint to check if the server is running.
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Eventify Backend is running!
+
+  /api/users/signup:
+    post:
+      summary: Sign up a new user
+      description: Register a new user with email and password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required:
+                - email
+                - password
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+        '500':
+          description: Server error
+
+  /api/users/login:
+    post:
+      summary: Log in a user
+      description: Authenticate a user and return a JWT token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required:
+                - email
+                - password
+      responses:
+        '200':
+          description: User logged in successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+
+  /api/users/me:
+    get:
+      summary: Get authenticated user profile
+      description: Retrieve the profile of the authenticated user.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+
+  /api/events:
+    post:
+      summary: Create a new event
+      description: Create a new event for the authenticated user.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                date:
+                  type: string
+                  format: date-time
+              required:
+                - title
+                - date
+      responses:
+        '201':
+          description: Event created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+    get:
+      summary: Get all events
+      description: Retrieve all events for the authenticated user.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/events/{id}:
+    get:
+      summary: Get an event by ID
+      description: Retrieve a specific event by its ID.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Event retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Event not found
+        '500':
+          description: Server error
+    put:
+      summary: Update an event
+      description: Update a specific event by its ID.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                date:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Event updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Event not found
+        '500':
+          description: Server error
+    delete:
+      summary: Delete an event
+      description: Delete a specific event by its ID.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Event deleted successfully
+        '401':
+          description: Unauthorized
+        '404':
+          description: Event not found
+        '500':
+          description: Server error
+
+  /api/events/{eventId}/tasks:
+    post:
+      summary: Create a task for an event
+      description: Create a new task for a specific event.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                dueDate:
+                  type: string
+                  format: date-time
+              required:
+                - title
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventTask'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Event not found
+        '500':
+          description: Server error
+    get:
+      summary: Get all tasks for an event
+      description: Retrieve all tasks for a specific event.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Tasks retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventTask'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Event not found
+        '500':
+          description: Server error
+
+  /api/events/{eventId}/tasks/{taskId}:
+    get:
+      summary: Get a task by ID
+      description: Retrieve a specific task by its ID for an event.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: taskId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Task retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventTask'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Task or event not found
+        '500':
+          description: Server error
+    put:
+      summary: Update a task
+      description: Update a specific task by its ID for an event.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: taskId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                dueDate:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventTask'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Task or event not found
+        '500':
+          description: Server error
+    delete:
+      summary: Delete a task
+      description: Delete a specific task by its ID for an event.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: taskId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Task deleted successfully
+        '401':
+          description: Unauthorized
+        '404':
+          description: Task or event not found
+        '500':
+          description: Server error
+
+  /api/events/{eventId}/budgets:
+    post:
+      summary: Create a budget for an event
+      description: Create a new budget for a specific event.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                category:
+                  type: string
+                amount:
+                  type: number
+                  format: float
+              required:
+                - category
+                - amount
+      responses:
+        '201':
+          description: Budget created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Event not found
+        '500':
+          description: Server error
+    get:
+      summary: Get all budgets for an event
+      description: Retrieve all budgets for a specific event.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Budgets retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Budget'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Event not found
+        '500':
+          description: Server error
+
+  /api/events/{eventId}/budgets/{budgetId}:
+    get:
+      summary: Get a budget by ID
+      description: Retrieve a specific budget by its ID for an event.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: budgetId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Budget retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Budget or event not found
+        '500':
+          description: Server error
+    put:
+      summary: Update a budget
+      description: Update a specific budget by its ID for an event.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: budgetId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                category:
+                  type: string
+                amount:
+                  type: number
+                  format: float
+      responses:
+        '200':
+          description: Budget updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Budget or event not found
+        '500':
+          description: Server error
+    delete:
+      summary: Delete a budget
+      description: Delete a specific budget by its ID for an event.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: budgetId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Budget deleted successfully
+        '401':
+          description: Unauthorized
+        '404':
+          description: Budget or event not found
+        '500':
+          description: Server error
+
+  /api/events/{eventId}/archive:
+    post:
+      summary: Archive an event
+      description: Archive a specific event by its ID.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Event archived successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Archive'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Event not found
+        '500':
+          description: Server error
+
+  /api/archives:
+    get:
+      summary: Get all archived events
+      description: Retrieve all archived events for the authenticated user.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Archived events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Archive'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/archives/{archiveId}:
+    get:
+      summary: Get an archived event by ID
+      description: Retrieve a specific archived event by its ID.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: archiveId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Archived event retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Archive'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Archived event not found
+        '500':
+          description: Server error
+    delete:
+      summary: Delete an archived event
+      description: Delete a specific archived event by its ID.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: archiveId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Archived event deleted successfully
+        '401':
+          description: Unauthorized
+        '404':
+          description: Archived event not found
+        '500':
+          description: Server error
