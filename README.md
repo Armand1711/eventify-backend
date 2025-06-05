@@ -1,130 +1,120 @@
-Eventify Backend (C#)
-Overview
-eventify-backend is a C# ASP.NET Core API for managing events, tasks, budgets, and archives. It uses Entity Framework Core for PostgreSQL database interactions, JWT for authentication, and Swashbuckle for Swagger UI. The application is containerized using Docker for easy development and deployment.
-This backend supports:
+# Eventify Backend
 
-User management (signup, login, profile retrieval)
-Event CRUD operations
-Task and budget management per event
-Event archiving
+This is the backend for the Eventify app, built with ASP.NET Core and PostgreSQL.  
+It provides a REST API for managing users, events, tasks, budgets, and archives.
 
-Prerequisites
+---
 
-Git: To clone the repository.
-Docker: To run the application in a container.
-Docker Compose: For managing the Docker setup.
-.NET SDK: Version 8.0 or later (if running locally without Docker).
-psql (PostgreSQL client): Optional, for direct database access.
+## 🚀 Getting Started
 
-Setup Instructions
-1. Clone the Repository
-git clone <repository-url>
-cd EventifyBackend
+### 1. **Prerequisites**
 
-2. Configure Settings
-Ensure appsettings.json contains the correct database connection string:
-"ConnectionStrings": {
-  "DefaultConnection": "Host=eventify-db-armandn03-cdd0.g.aivencloud.com;Port=21571;Database=defaultdb;Username=avnadmin;Password=AVNS_8NsN2OzScejY-EOc3CL;SslMode=Require;"
-},
-"Jwt": {
-  "Secret": "your_jwt_secret_here"
-}
+- [.NET 8 SDK](https://dotnet.microsoft.com/download)
+- [PostgreSQL](https://www.postgresql.org/download/) (or use the provided cloud connection string)
+- [Visual Studio Code](https://code.visualstudio.com/) (recommended, but not required)
 
+---
 
-⚠️ Security Warning: The database credentials above are sensitive. In production, use environment variables or a secrets manager. Do not commit sensitive data to a public repository.
+### 2. **Clone the Repository**
 
-3. Build and Run with Docker
-Build the Docker Image
-docker-compose up --build
+```sh
+git clone <your-repo-url>
+cd eventify-backend/EventifyBackend
+```
 
+---
 
-The application will be available at http://localhost:3000.
+### 3. **Configure the Database**
 
-Expected Output
-info: Microsoft.EntityFrameworkCore.Database.Command[20101]
-      Executed DbCommand (Xms) [Parameters=[], CommandType='Text', CommandTimeout='30']
-      CREATE DATABASE IF NOT EXISTS "defaultdb";
-info: Microsoft.Hosting.Lifetime[0]
-      Now listening on: http://[::]:3000
-info: Microsoft.Hosting.Lifetime[0]
-      Application started. Press Ctrl+C to shut down.
+- Open `appsettings.json`.
+- Make sure the `DefaultConnection` string is correct for your PostgreSQL database.
+  - You can use the provided cloud database, or set up your own and update the connection string.
 
-4. Access the API
+---
 
-Swagger UI: Open http://localhost:3000/api-docs to view and test the API endpoints.
-Test Endpoint: Visit http://localhost:3000/ to confirm the server is running (should return Eventify Backend is running!).
+### 4. **Set the JWT Secret**
 
-5. Test Endpoints with cURL
-Sign Up a User
-curl -X 'POST' \
-  'http://localhost:3000/api/users/signup' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{
-  "email": "test@example.com",
-  "password": "password123"
-}'
+- The `Jwt:Secret` in `appsettings.json` should be a long, random string (at least 32 characters).
+- This is already set for you, but you can change it if you want.
 
-Log In
-curl -X 'POST' \
-  'http://localhost:3000/api/users/login' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{
-  "email": "test@example.com",
-  "password": "password123"
-}'
+---
 
-Create an Event
-curl -X 'POST' \
-  'http://localhost:3000/api/events' \
-  -H 'accept: application/json' \
-  -H 'Authorization: Bearer <your-jwt-token>' \
-  -H 'Content-Type: application/json' \
-  -d '{
-  "title": "My Event",
-  "description": "A test event",
-  "date": "2025-06-10T10:00:00Z"
-}'
+### 5. **Apply Database Migrations**
 
-6. Verify Database (Optional)
-psql -h eventify-db-armandn03-cdd0.g.aivencloud.com -p 21571 -U avnadmin -d defaultdb --set=sslmode=require
+This will create all the necessary tables in your database.
 
+```sh
+dotnet tool install --global dotnet-ef
+dotnet ef database update
+```
 
-Password: AVNS_8NsN2OzScejY-EOc3CL
-Query: SELECT * FROM "Users";
+---
 
-7. Stop the Application
-docker-compose down
+### 6. **Run the Project**
 
-Project Structure
+```sh
+dotnet run
+```
 
-Controllers/: API endpoint definitions.
-Models/: Entity Framework Core models and database context.
-Program.cs: Main application entry point.
-appsettings.json: Configuration settings.
-Dockerfile and docker-compose.yml: Docker setup.
+- The API will start, usually at `http://localhost:5256`.
 
-Additional Commands
-Rebuild Without Cache
-docker-compose up --build --no-cache
+---
 
-View Docker Logs
-docker-compose logs
+### 7. **Test with Swagger**
 
-Run Locally Without Docker
+- Open your browser and go to: [http://localhost:5256/swagger](http://localhost:5256/swagger)
+- You will see a web interface where you can test all the API endpoints.
 
-Restore dependencies:dotnet restore
+---
 
+## 🧪 Example: Test the API
 
-Run the application:dotnet run
+1. **Sign up a user**
+   - Use the `POST /api/users/signup` endpoint.
+   - Example body:
+     ```json
+     {
+       "email": "testuser@example.com",
+       "password": "TestPassword123!"
+     }
+     ```
 
+2. **Log in**
+   - Use the `POST /api/users/login` endpoint.
+   - Copy the returned `token`.
 
+3. **Authorize**
+   - Click the "Authorize" button in Swagger (top right).
+   - Paste your token as: `Bearer <your-token>`
 
-Troubleshooting
+4. **Try other endpoints**
+   - Now you can create events, tasks, budgets, and archives.
 
-Database Connection Issues: Verify your IP is allowlisted in Aiven.
-JWT Errors: Ensure Jwt:Secret is set in appsettings.json.
-404 Errors: Check that all controllers are defined correctly.
+---
 
-For further assistance, check the Docker logs or consult the project maintainers.
+## 🛠 Troubleshooting
+
+- **Database errors:** Make sure your connection string is correct and the database is running.
+- **JWT errors:** Make sure your JWT secret is at least 32 characters.
+- **Port issues:** If `http://localhost:5256` doesn't work, check your terminal for the correct port.
+
+---
+
+## 📚 Useful Commands
+
+- Update database:  
+  ```sh
+  dotnet ef database update
+  ```
+- Run the project:  
+  ```sh
+  dotnet run
+  ```
+
+---
+
+## 🙋 Need Help?
+
+If you get stuck, ask your team lead or post your error message in the team chat!
+
+---

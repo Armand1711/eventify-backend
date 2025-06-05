@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Models;
 using System.Threading.Tasks;
-using System.Linq; // Add this for LINQ extension methods
+using System.Linq;
 
 namespace EventifyBackend.Controllers
 {
@@ -41,7 +41,6 @@ namespace EventifyBackend.Controllers
             task.EventId = parsedEventId;
             _context.EventTasks.Add(task);
             await _context.SaveChangesAsync();
-            // Use nameof(GetTask) and provide route values for CreatedAtAction
             return CreatedAtAction(nameof(GetTask), new { eventId = eventId, id = task.Id }, task);
         }
 
@@ -75,7 +74,6 @@ namespace EventifyBackend.Controllers
             existingTask.Title = task.Title;
             existingTask.Description = task.Description;
             existingTask.DueDate = task.DueDate;
-            existingTask.IsCompleted = task.IsCompleted;
             await _context.SaveChangesAsync();
             return NoContent();
         }
@@ -92,23 +90,7 @@ namespace EventifyBackend.Controllers
                 return NotFound();
 
             _context.EventTasks.Remove(task);
-            await _context.SaveChangesAsync();
-            return NoContent();
-        }
-
-        [HttpPatch("{id}/toggle")]
-        public async Task<IActionResult> ToggleTaskCompletion(string eventId, string id)
-        {
-            if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int taskId))
-                return BadRequest("Invalid event ID or task ID.");
-
-            var task = await _context.EventTasks
-                .FirstOrDefaultAsync(t => t.EventId == parsedEventId && t.Id == taskId);
-            if (task == null)
-                return NotFound();
-
-            task.IsCompleted = !task.IsCompleted;
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync();;
             return NoContent();
         }
     }

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("EventifyBackend")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b2f8ddeb565fcbd1d647ec2050adfc21eabc9c1c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5e8828a72236a576b89f268688f4f9448c3db189")]
 [assembly: System.Reflection.AssemblyProductAttribute("EventifyBackend")]
 [assembly: System.Reflection.AssemblyTitleAttribute("EventifyBackend")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
