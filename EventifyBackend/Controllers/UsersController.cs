@@ -1,75 +1,86 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using EventifyBackend.Models;
+using System.Text;
+using System.Threading.Tasks;
+using BCrypt.Net;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
-using EventifyBackend.Models;
-using BCrypt.Net;
 
-namespace EventifyBackend.Controllers
+namespace EventifyBackend.Controllers;
+
+[Route("api/users")]
+[ApiController]
+public class UsersController : ControllerBase
 {
-    [Route("api/users")]
-    [ApiController]
-    public class UsersController : ControllerBase
+    private readonly EventifyDbContext _context;
+    private readonly string _jwtSecret;
+
+    public UsersController(EventifyDbContext context, IConfiguration configuration)
     {
-        private readonly EventifyDbContext _context;
-        private readonly IConfiguration _configuration;
+        _context = context;
+        _jwtSecret = configuration["Jwt:Secret"] ?? throw new InvalidOperationException("JWT Secret is not configured.");
+    }
 
-        public UsersController(EventifyDbContext context, IConfiguration configuration)
+    public class SignupRequest
+    {
+        public string? Email { get; set; }
+        public string? Password { get; set; }
+    }
+
+    [HttpPost("signup")]
+    public async Task<IActionResult> Signup([FromBody] SignupRequest request)
+    {
+        if (request == null || string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Password))
+            return BadRequest("Email and password are required.");
+
+        if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+            return Conflict("Email already exists.");
+
+        var user = new User
         {
-            _context = context;
-            _configuration = configuration;
-        }
+            Email = request.Email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
+        };
 
-        [HttpPost("signup")]
-        public async Task<IActionResult> Signup([FromBody] User user)
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var token = GenerateJwtToken(user);
+        return CreatedAtAction(nameof(Signup), new { id = user.Id }, new { token, user = new { id = user.Id, email = user.Email } });
+    }
+
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] SignupRequest request)
+    {
+        if (request == null || string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Password))
+            return BadRequest("Email and password are required.");
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            return Unauthorized("Invalid email or password.");
+
+        var token = GenerateJwtToken(user);
+        return Ok(new { token, user = new { id = user.Id, email = user.Email } });
+    }
+
+    private string GenerateJwtToken(User user)
+    {
+        var claims = new[]
         {
-            user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.Email, user.Email ?? string.Empty)
+        };
 
-            var token = GenerateJwtToken(user);
-            return StatusCode(201, new { token, user = new { user.Id, user.Email } });
-        }
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSecret));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] User loginUser)
-        {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == loginUser.Email);
-            if (user == null || !BCrypt.Net.BCrypt.Verify(loginUser.Password, user.Password))
-                return Unauthorized(new { error = "Invalid credentials" });
+        var token = new JwtSecurityToken(
+            claims: claims,
+            expires: DateTime.Now.AddHours(1),
+            signingCredentials: creds);
 
-            var token = GenerateJwtToken(user);
-            return Ok(new { token, user = new { user.Id, user.Email } });
-        }
-
-        [Authorize]
-        [HttpGet("me")]
-        public async Task<IActionResult> GetProfile()
-        {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            var user = await _context.Users.FindAsync(userId);
-            if (user == null) return NotFound(new { error = "User not found" });
-            return Ok(new { user.Id, user.Email });
-        }
-
-        private string GenerateJwtToken(User user)
-        {
-            var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Secret"]);
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(new[]
-                {
-                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
-                }),
-                Expires = DateTime.UtcNow.AddHours(1),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-            };
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
-        }
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

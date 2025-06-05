@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "OBO/u7qMtKFMB5rIqreeNqFvq889UMHO/supTFUFsi0=",
+  "Source": "EventifyBackend",
+  "BasePath": "_content/EventifyBackend",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}

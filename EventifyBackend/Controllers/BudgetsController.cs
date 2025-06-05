@@ -1,74 +1,88 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using EventifyBackend.Models;
+using System.Threading.Tasks;
 
-namespace EventifyBackend.Controllers
+namespace EventifyBackend.Controllers;
+
+[Route("api/events/{eventId}/budgets")]
+[ApiController]
+public class BudgetsController : ControllerBase
 {
-    [Route("api/events/{eventId}/budgets")]
-    [ApiController]
-    [Authorize]
-    public class BudgetsController : ControllerBase
+    private readonly EventifyDbContext _context;
+
+    public BudgetsController(EventifyDbContext context)
     {
-        private readonly EventifyDbContext _context;
+        _context = context;
+    }
 
-        public BudgetsController(EventifyDbContext context)
-        {
-            _context = context;
-        }
+    [HttpGet]
+    public async Task<IActionResult> GetBudgets(string eventId)
+    {
+        if (!int.TryParse(eventId, out int parsedEventId))
+            return BadRequest("Invalid event ID.");
 
-        [HttpPost]
-        public async Task<IActionResult> CreateBudget(int eventId, [FromBody] Budget budget)
-        {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            budget.EventId = eventId;
-            budget.UserId = userId;
-            _context.Budgets.Add(budget);
-            await _context.SaveChangesAsync();
-            return StatusCode(201, budget);
-        }
+        var budgets = await _context.Budgets
+            .Where(b => b.EventId == parsedEventId)
+            .ToListAsync();
+        return Ok(budgets);
+    }
 
-        [HttpGet]
-        public async Task<IActionResult> GetBudgets(int eventId)
-        {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            var budgets = await _context.Budgets.Where(b => b.EventId == eventId && b.UserId == userId).ToListAsync();
-            return Ok(budgets);
-        }
+    [HttpPost]
+    public async Task<IActionResult> CreateBudget(string eventId, [FromBody] Budget budget)
+    {
+        if (!int.TryParse(eventId, out int parsedEventId))
+            return BadRequest("Invalid event ID.");
 
-        [HttpGet("{budgetId}")]
-        public async Task<IActionResult> GetBudget(int eventId, int budgetId)
-        {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            var budget = await _context.Budgets.FirstOrDefaultAsync(b => b.Id == budgetId && b.EventId == eventId && b.UserId == userId);
-            if (budget == null) return NotFound(new { error = "Budget not found" });
-            return Ok(budget);
-        }
+        budget.EventId = parsedEventId;
+        _context.Budgets.Add(budget);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(CreateBudget), new { id = budget.Id }, budget);
+    }
 
-        [HttpPut("{budgetId}")]
-        public async Task<IActionResult> UpdateBudget(int eventId, int budgetId, [FromBody] Budget updatedBudget)
-        {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            var budget = await _context.Budgets.FirstOrDefaultAsync(b => b.Id == budgetId && b.EventId == eventId && b.UserId == userId);
-            if (budget == null) return NotFound(new { error = "Budget not found" });
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetBudget(string eventId, string id)
+    {
+        if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int budgetId))
+            return BadRequest("Invalid event ID or budget ID.");
 
-            budget.Category = updatedBudget.Category;
-            budget.Amount = updatedBudget.Amount;
-            await _context.SaveChangesAsync();
-            return Ok(budget);
-        }
+        var budget = await _context.Budgets
+            .FirstOrDefaultAsync(b => b.EventId == parsedEventId && b.Id == budgetId);
+        if (budget == null)
+            return NotFound();
+        return Ok(budget);
+    }
 
-        [HttpDelete("{budgetId}")]
-        public async Task<IActionResult> DeleteBudget(int eventId, int budgetId)
-        {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            var budget = await _context.Budgets.FirstOrDefaultAsync(b => b.Id == budgetId && b.EventId == eventId && b.UserId == userId);
-            if (budget == null) return NotFound(new { error = "Budget not found" });
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateBudget(string eventId, string id, [FromBody] Budget budget)
+    {
+        if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int budgetId))
+            return BadRequest("Invalid event ID or budget ID.");
 
-            _context.Budgets.Remove(budget);
-            await _context.SaveChangesAsync();
-            return NoContent();
-        }
+        var existingBudget = await _context.Budgets
+            .FirstOrDefaultAsync(b => b.EventId == parsedEventId && b.Id == budgetId);
+        if (existingBudget == null)
+            return NotFound();
+
+        existingBudget.Amount = budget.Amount;
+        existingBudget.Category = budget.Category;
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteBudget(string eventId, string id)
+    {
+        if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int budgetId))
+            return BadRequest("Invalid event ID or budget ID.");
+
+        var budget = await _context.Budgets
+            .FirstOrDefaultAsync(b => b.EventId == parsedEventId && b.Id == budgetId);
+        if (budget == null)
+            return NotFound();
+
+        _context.Budgets.Remove(budget);
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 }

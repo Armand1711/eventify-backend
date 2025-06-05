@@ -1,6 +1,15 @@
+version: '3.8'
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:3000
+    volumes:
+      - dataprotection-keys:/root/.aspnet/DataProtection-Keys
+volumes:
+  dataprotection-keys:

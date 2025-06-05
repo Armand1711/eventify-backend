@@ -30,13 +30,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // Configure Swagger
 builder.Services.AddSwaggerGen(c =>
 {
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Eventify Backend API", Version = "v1" });
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
         Description = "Please enter JWT with Bearer into field",
         Name = "Authorization",
         Type = SecuritySchemeType.Http,
-        Scheme = "bearer"
+        Scheme = "bearer",
+        BearerFormat = "JWT"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -57,17 +59,49 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// Initialize and migrate the database at startup
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<EventifyDbContext>();
+    try
+    {
+        // Ensure the database is created if it doesn't exist
+        dbContext.Database.EnsureCreated();
+        Console.WriteLine("Database created or already exists.");
+
+        // Apply any pending migrations
+        dbContext.Database.Migrate();
+        Console.WriteLine("Database migrations applied successfully.");
+
+        // Test database connection
+        var canConnect = dbContext.Database.CanConnect();
+        Console.WriteLine($"Database connection test: {(canConnect ? "Success" : "Failed")}");
+
+        // Verify table count (optional)
+        var tableCount = dbContext.Database.SqlQueryRaw<int>("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'").FirstOrDefault();
+        Console.WriteLine($"Number of tables in public schema: {tableCount}");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Database setup error: {ex.Message}");
+    }
+}
+
 // Configure the HTTP request pipeline.
-// Enable Swagger in all environments for testing
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Eventify Backend API v1");
+    c.RoutePrefix = "swagger"; // Serve Swagger UI at /swagger
 });
 
-app.UseHttpsRedirection();
+// Comment out HTTPS redirection for local testing
+// app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Add a simple test endpoint
+app.MapGet("/", () => "Eventify Backend is running!");
 
 app.Run();

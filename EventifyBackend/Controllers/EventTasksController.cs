@@ -1,75 +1,115 @@
-using Microsoft.AspNetCore.Authorization;
-   using Microsoft.AspNetCore.Mvc;
-   using Microsoft.EntityFrameworkCore;
-   using System.Security.Claims;
-   using EventifyBackend.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using EventifyBackend.Models;
+using System.Threading.Tasks;
+using System.Linq; // Add this for LINQ extension methods
 
-   namespace EventifyBackend.Controllers
-   {
-       [Route("api/events/{eventId}/tasks")]
-       [ApiController]
-       [Authorize]
-       public class EventTasksController : ControllerBase
-       {
-           private readonly EventifyDbContext _context;
+namespace EventifyBackend.Controllers
+{
+    [Route("api/events/{eventId}/tasks")]
+    [ApiController]
+    public class EventTasksController : ControllerBase
+    {
+        private readonly EventifyDbContext _context;
 
-           public EventTasksController(EventifyDbContext context)
-           {
-               _context = context;
-           }
+        public EventTasksController(EventifyDbContext context)
+        {
+            _context = context;
+        }
 
-           [HttpPost]
-           public async Task<IActionResult> CreateTask(int eventId, [FromBody] EventTask task)
-           {
-               var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-               task.EventId = eventId;
-               task.UserId = userId;
-               _context.Tasks.Add(task);
-               await _context.SaveChangesAsync();
-               return StatusCode(201, task);
-           }
+        [HttpGet]
+        public async Task<IActionResult> GetTasks(string eventId)
+        {
+            if (!int.TryParse(eventId, out int parsedEventId))
+                return BadRequest("Invalid event ID.");
 
-           [HttpGet]
-           public async Task<IActionResult> GetTasks(int eventId)
-           {
-               var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-               var tasks = await _context.Tasks.Where(t => t.EventId == eventId && t.UserId == userId).ToListAsync();
-               return Ok(tasks);
-           }
+            var tasks = await _context.EventTasks
+                .Where(t => t.EventId == parsedEventId)
+                .ToListAsync();
+            return Ok(tasks);
+        }
 
-           [HttpGet("{taskId}")]
-           public async Task<IActionResult> GetTask(int eventId, int taskId)
-           {
-               var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-               var task = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == taskId && t.EventId == eventId && t.UserId == userId);
-               if (task == null) return NotFound(new { error = "Task not found" });
-               return Ok(task);
-           }
+        [HttpPost]
+        public async Task<IActionResult> CreateTask(string eventId, [FromBody] EventTask task)
+        {
+            if (!int.TryParse(eventId, out int parsedEventId))
+                return BadRequest("Invalid event ID.");
 
-           [HttpPut("{taskId}")]
-           public async Task<IActionResult> UpdateTask(int eventId, int taskId, [FromBody] EventTask updatedTask)
-           {
-               var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-               var task = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == taskId && t.EventId == eventId && t.UserId == userId);
-               if (task == null) return NotFound(new { error = "Task not found" });
+            if (task == null)
+                return BadRequest("Task data is required.");
 
-               task.Title = updatedTask.Title;
-               task.Description = updatedTask.Description;
-               task.DueDate = updatedTask.DueDate;
-               await _context.SaveChangesAsync();
-               return Ok(task);
-           }
+            task.EventId = parsedEventId;
+            _context.EventTasks.Add(task);
+            await _context.SaveChangesAsync();
+            // Use nameof(GetTask) and provide route values for CreatedAtAction
+            return CreatedAtAction(nameof(GetTask), new { eventId = eventId, id = task.Id }, task);
+        }
 
-           [HttpDelete("{taskId}")]
-           public async Task<IActionResult> DeleteTask(int eventId, int taskId)
-           {
-               var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-               var task = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == taskId && t.EventId == eventId && t.UserId == userId);
-               if (task == null) return NotFound(new { error = "Task not found" });
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetTask(string eventId, string id)
+        {
+            if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int taskId))
+                return BadRequest("Invalid event ID or task ID.");
 
-               _context.Tasks.Remove(task);
-               await _context.SaveChangesAsync();
-               return NoContent();
-           }
-       }
-   }
+            var task = await _context.EventTasks
+                .FirstOrDefaultAsync(t => t.EventId == parsedEventId && t.Id == taskId);
+            if (task == null)
+                return NotFound();
+            return Ok(task);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateTask(string eventId, string id, [FromBody] EventTask task)
+        {
+            if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int taskId))
+                return BadRequest("Invalid event ID or task ID.");
+
+            if (task == null)
+                return BadRequest("Task data is required.");
+
+            var existingTask = await _context.EventTasks
+                .FirstOrDefaultAsync(t => t.EventId == parsedEventId && t.Id == taskId);
+            if (existingTask == null)
+                return NotFound();
+
+            existingTask.Title = task.Title;
+            existingTask.Description = task.Description;
+            existingTask.DueDate = task.DueDate;
+            existingTask.IsCompleted = task.IsCompleted;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteTask(string eventId, string id)
+        {
+            if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int taskId))
+                return BadRequest("Invalid event ID or task ID.");
+
+            var task = await _context.EventTasks
+                .FirstOrDefaultAsync(t => t.EventId == parsedEventId && t.Id == taskId);
+            if (task == null)
+                return NotFound();
+
+            _context.EventTasks.Remove(task);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpPatch("{id}/toggle")]
+        public async Task<IActionResult> ToggleTaskCompletion(string eventId, string id)
+        {
+            if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int taskId))
+                return BadRequest("Invalid event ID or task ID.");
+
+            var task = await _context.EventTasks
+                .FirstOrDefaultAsync(t => t.EventId == parsedEventId && t.Id == taskId);
+            if (task == null)
+                return NotFound();
+
+            task.IsCompleted = !task.IsCompleted;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+    }
+}
