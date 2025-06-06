@@ -64,10 +64,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy
-            .SetIsOriginAllowed(origin =>
-                origin == "http://localhost:3000" ||
-                origin == "http://localhost:3001" ||
-                origin == "https://splendid-heliotrope-468d3a.netlify.app"
+            .WithOrigins(
+                "http://localhost:3000",
+                "http://localhost:3001",
+                "https://splendid-heliotrope-468d3a.netlify.app"
             )
             .AllowAnyHeader()
             .AllowAnyMethod();
