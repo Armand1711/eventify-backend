@@ -69,37 +69,9 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// CORS must come BEFORE authentication, authorization, and MapControllers!
 app.UseCors("AllowNetlify");
 
-// Initialize and migrate the database at startup
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<EventifyDbContext>();
-    try
-    {
-        // Ensure the database is created if it doesn't exist
-        dbContext.Database.EnsureCreated();
-        Console.WriteLine("Database created or already exists.");
-
-        // Apply any pending migrations
-        dbContext.Database.Migrate();
-        Console.WriteLine("Database migrations applied successfully.");
-
-        // Test database connection
-        var canConnect = dbContext.Database.CanConnect();
-        Console.WriteLine($"Database connection test: {(canConnect ? "Success" : "Failed")}");
-
-        // Verify table count (optional)
-        var tableCount = dbContext.Database.SqlQueryRaw<int>("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'").FirstOrDefault();
-        Console.WriteLine($"Number of tables in public schema: {tableCount}");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Database setup error: {ex.Message}");
-    }
-}
-
-// Configure the HTTP request pipeline.
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -109,6 +81,7 @@ app.UseSwaggerUI(c =>
 
 // Comment out HTTPS redirection for local testing
 // app.UseHttpsRedirection();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
