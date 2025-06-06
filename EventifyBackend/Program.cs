@@ -58,20 +58,20 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Configure CORS to allow Netlify and local dev
+// Improved CORS setup to handle all Netlify deploys and local dev
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy
-            .WithOrigins(
-                "http://localhost:3000",
-                "http://localhost:3001",
-                "https://splendid-heliotrope-468d3a.netlify.app"
+            .SetIsOriginAllowed(origin =>
+                origin == "http://localhost:3000" ||
+                origin == "http://localhost:3001" ||
+                origin == "https://splendid-heliotrope-468d3a.netlify.app"
             )
             .AllowAnyHeader()
             .AllowAnyMethod();
-            // .AllowCredentials(); // Only needed if you use cookies/auth headers
+            // .AllowCredentials(); // Uncomment if you use cookies/auth headers
     });
 });
 
