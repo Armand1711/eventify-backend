@@ -57,7 +57,19 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowNetlify", policy =>
+    {
+        policy.WithOrigins("https://splendid-heliotrope-468d3a.netlify.app")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
+
+app.UseCors("AllowNetlify");
 
 // Initialize and migrate the database at startup
 using (var scope = app.Services.CreateScope())
