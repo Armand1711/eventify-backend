@@ -23,7 +23,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"] ?? throw new InvalidOperationException("JWT Secret is not configured.")))
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"] 
+                    ?? throw new InvalidOperationException("JWT Secret is not configured.")))
         };
     });
 
@@ -57,20 +58,27 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// Configure CORS to allow both Netlify and local dev
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowNetlify", policy =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("https://splendid-heliotrope-468d3a.netlify.app")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        policy
+            .WithOrigins(
+                "http://localhost:3000",      // React dev server (npm start)
+                "http://localhost:3001",      // If you ever run on :3001
+                "https://splendid-heliotrope-468d3a.netlify.app" // Your Netlify URL
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
 var app = builder.Build();
 
-// CORS must come BEFORE authentication, authorization, and MapControllers!
-app.UseCors("AllowNetlify");
+// IMPORTANT: CORS must come BEFORE authentication, authorization, and MapControllers
+app.UseCors("AllowFrontend");
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>
@@ -79,14 +87,15 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger"; // Serve Swagger UI at /swagger
 });
 
-// Comment out HTTPS redirection for local testing
+// For local dev, you can comment out HTTPS redirection if needed
 // app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
-// Add a simple test endpoint
+// Optional: A simple test endpoint
 app.MapGet("/", () => "Eventify Backend is running!");
 
 app.Run();
