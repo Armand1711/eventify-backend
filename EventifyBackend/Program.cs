@@ -58,36 +58,36 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Configure CORS to allow both Netlify and local dev
+// Configure CORS to allow Netlify and local dev
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy
             .WithOrigins(
-                "http://localhost:3000",      // React dev server (npm start)
-                "http://localhost:3001",      // If you ever run on :3001
-                "https://splendid-heliotrope-468d3a.netlify.app" // Your Netlify URL
+                "http://localhost:3000",
+                "http://localhost:3001",
+                "https://splendid-heliotrope-468d3a.netlify.app"
             )
             .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
+            .AllowAnyMethod();
+            // .AllowCredentials(); // Only needed if you use cookies/auth headers
     });
 });
 
 var app = builder.Build();
 
-// IMPORTANT: CORS must come BEFORE authentication, authorization, and MapControllers
+// CORS must come BEFORE authentication, authorization, and MapControllers
 app.UseCors("AllowFrontend");
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Eventify Backend API v1");
-    c.RoutePrefix = "swagger"; // Serve Swagger UI at /swagger
+    c.RoutePrefix = "swagger";
 });
 
-// For local dev, you can comment out HTTPS redirection if needed
+// Uncomment if you want HTTPS redirection
 // app.UseHttpsRedirection();
 
 app.UseAuthentication();
@@ -95,7 +95,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Optional: A simple test endpoint
 app.MapGet("/", () => "Eventify Backend is running!");
 
 app.Run();
