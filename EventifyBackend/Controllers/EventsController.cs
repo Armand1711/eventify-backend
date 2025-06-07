@@ -43,5 +43,20 @@ namespace EventifyBackend.Controllers
 
             return CreatedAtAction(nameof(GetEvent), new { id = evt.Id }, evt);
         }
+
+        // PUT: api/events/{id}/archive
+        [HttpPut("{id}/archive")]
+        public async Task<IActionResult> ArchiveEvent(int id)
+        {
+            var evt = await _context.Events.FirstOrDefaultAsync(e => e.Id == id);
+            if (evt == null)
+                return NotFound(new { error = "Event not found" });
+
+            evt.Archived = true;
+            evt.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
     }
 }

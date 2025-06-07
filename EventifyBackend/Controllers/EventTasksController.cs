@@ -162,5 +162,23 @@ namespace EventifyBackend.Controllers
                 notCompletedTasks = notCompleted
             });
         }
+
+        private async Task CheckAndAutoArchiveEvent(int eventId)
+        {
+            var tasks = await _context.EventTasks
+                .Where(t => t.EventId == eventId && !t.Archived)
+                .ToListAsync();
+
+            if (tasks.Count > 0 && tasks.All(t => t.Completed))
+            {
+                var evt = await _context.Events.FirstOrDefaultAsync(e => e.Id == eventId);
+                if (evt != null && !evt.Archived)
+                {
+                    evt.Archived = true;
+                    evt.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                }
+            }
+        }
     }
 }
