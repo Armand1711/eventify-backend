@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace EventifyBackend.Controllers;
 
-[Route("api/events/{eventId}/budgets")]
+[Route("api/tasks/{taskId}/budgets")]
 [ApiController]
 public class BudgetsController : ControllerBase
 {
@@ -17,50 +17,50 @@ public class BudgetsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetBudgets(string eventId)
+    public async Task<IActionResult> GetBudgets(string taskId)
     {
-        if (!int.TryParse(eventId, out int parsedEventId))
-            return BadRequest("Invalid event ID.");
+        if (!int.TryParse(taskId, out int parsedTaskId))
+            return BadRequest("Invalid task ID.");
 
         var budgets = await _context.Budgets
-            .Where(b => b.EventId == parsedEventId)
+            .Where(b => b.TaskId == parsedTaskId)
             .ToListAsync();
         return Ok(budgets);
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateBudget(string eventId, [FromBody] Budget budget)
+    public async Task<IActionResult> CreateBudget(string taskId, [FromBody] Budget budget)
     {
-        if (!int.TryParse(eventId, out int parsedEventId))
-            return BadRequest("Invalid event ID.");
+        if (!int.TryParse(taskId, out int parsedTaskId))
+            return BadRequest("Invalid task ID.");
 
-        budget.EventId = parsedEventId;
+        budget.TaskId = parsedTaskId;
         _context.Budgets.Add(budget);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(CreateBudget), new { id = budget.Id }, budget);
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetBudget(string eventId, string id)
+    public async Task<IActionResult> GetBudget(string taskId, string id)
     {
-        if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int budgetId))
-            return BadRequest("Invalid event ID or budget ID.");
+        if (!int.TryParse(taskId, out int parsedTaskId) || !int.TryParse(id, out int budgetId))
+            return BadRequest("Invalid task ID or budget ID.");
 
         var budget = await _context.Budgets
-            .FirstOrDefaultAsync(b => b.EventId == parsedEventId && b.Id == budgetId);
+            .FirstOrDefaultAsync(b => b.TaskId == parsedTaskId && b.Id == budgetId);
         if (budget == null)
             return NotFound();
         return Ok(budget);
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateBudget(string eventId, string id, [FromBody] Budget budget)
+    public async Task<IActionResult> UpdateBudget(string taskId, string id, [FromBody] Budget budget)
     {
-        if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int budgetId))
-            return BadRequest("Invalid event ID or budget ID.");
+        if (!int.TryParse(taskId, out int parsedTaskId) || !int.TryParse(id, out int budgetId))
+            return BadRequest("Invalid task ID or budget ID.");
 
         var existingBudget = await _context.Budgets
-            .FirstOrDefaultAsync(b => b.EventId == parsedEventId && b.Id == budgetId);
+            .FirstOrDefaultAsync(b => b.TaskId == parsedTaskId && b.Id == budgetId);
         if (existingBudget == null)
             return NotFound();
 
@@ -71,13 +71,13 @@ public class BudgetsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteBudget(string eventId, string id)
+    public async Task<IActionResult> DeleteBudget(string taskId, string id)
     {
-        if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int budgetId))
-            return BadRequest("Invalid event ID or budget ID.");
+        if (!int.TryParse(taskId, out int parsedTaskId) || !int.TryParse(id, out int budgetId))
+            return BadRequest("Invalid task ID or budget ID.");
 
         var budget = await _context.Budgets
-            .FirstOrDefaultAsync(b => b.EventId == parsedEventId && b.Id == budgetId);
+            .FirstOrDefaultAsync(b => b.TaskId == parsedTaskId && b.Id == budgetId);
         if (budget == null)
             return NotFound();
 

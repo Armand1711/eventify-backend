@@ -15,16 +15,10 @@ namespace EventifyBackend.Models
         [Column("amount")]
         public float Amount { get; set; }
 
-        [Column("eventId")]
-        public int EventId { get; set; }
+        [Column("taskId")]
+        public int TaskId { get; set; } // Link to EventTask
 
         [Column("userId")]
         public int UserId { get; set; }
-
-        // Optional: Add timestamps if you want
-        // [Column("createdAt")]
-        // public DateTime CreatedAt { get; set; }
-        // [Column("updatedAt")]
-        // public DateTime UpdatedAt { get; set; }
     }
 }
