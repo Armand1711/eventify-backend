@@ -140,5 +140,27 @@ namespace EventifyBackend.Controllers
 
             return Ok(totalBudget);
         }
+
+        [HttpGet("~/api/events/{eventId}/tasks/completion")]
+        public async Task<IActionResult> GetTaskCompletion(string eventId)
+        {
+            if (!int.TryParse(eventId, out int parsedEventId))
+                return BadRequest("Invalid event ID.");
+
+            var tasks = await _context.EventTasks
+                .Where(t => t.EventId == parsedEventId && !t.Archived)
+                .ToListAsync();
+
+            int total = tasks.Count;
+            int completed = tasks.Count(t => t.Completed);
+            int notCompleted = total - completed;
+
+            return Ok(new
+            {
+                totalTasks = total,
+                completedTasks = completed,
+                notCompletedTasks = notCompleted
+            });
+        }
     }
 }
