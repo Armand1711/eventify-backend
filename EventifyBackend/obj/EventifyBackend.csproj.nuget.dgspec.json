@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\arman\\OneDrive\\Desktop\\eventify-backend\\EventifyBAckend\\EventifyBackend.csproj": {}
+    "C:\\Users\\arman\\OneDrive\\Desktop\\eventify-backend\\EventifyBackend\\EventifyBackend.csproj": {}
   },
   "projects": {
-    "C:\\Users\\arman\\OneDrive\\Desktop\\eventify-backend\\EventifyBAckend\\EventifyBackend.csproj": {
+    "C:\\Users\\arman\\OneDrive\\Desktop\\eventify-backend\\EventifyBackend\\EventifyBackend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\arman\\OneDrive\\Desktop\\eventify-backend\\EventifyBAckend\\EventifyBackend.csproj",
+        "projectUniqueName": "C:\\Users\\arman\\OneDrive\\Desktop\\eventify-backend\\EventifyBackend\\EventifyBackend.csproj",
         "projectName": "EventifyBackend",
-        "projectPath": "C:\\Users\\arman\\OneDrive\\Desktop\\eventify-backend\\EventifyBAckend\\EventifyBackend.csproj",
+        "projectPath": "C:\\Users\\arman\\OneDrive\\Desktop\\eventify-backend\\EventifyBackend\\EventifyBackend.csproj",
         "packagesPath": "C:\\Users\\arman\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\arman\\OneDrive\\Desktop\\eventify-backend\\EventifyBAckend\\obj\\",
+        "outputPath": "C:\\Users\\arman\\OneDrive\\Desktop\\eventify-backend\\EventifyBackend\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\arman\\AppData\\Roaming\\NuGet\\NuGet.Config"
