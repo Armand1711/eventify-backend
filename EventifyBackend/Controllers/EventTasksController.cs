@@ -39,6 +39,8 @@ namespace EventifyBackend.Controllers
                 return BadRequest("Task data is required.");
 
             task.EventId = parsedEventId;
+            task.CreatedAt = DateTime.UtcNow;
+            task.UpdatedAt = DateTime.UtcNow;
             _context.EventTasks.Add(task);
             await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetTask), new { eventId = eventId, id = task.Id }, task);
@@ -74,6 +76,13 @@ namespace EventifyBackend.Controllers
             existingTask.Title = task.Title;
             existingTask.Description = task.Description;
             existingTask.DueDate = task.DueDate;
+            existingTask.Priority = task.Priority;
+            existingTask.AssignedTo = task.AssignedTo;
+            existingTask.Budget = task.Budget;
+            existingTask.Completed = task.Completed;
+            existingTask.Archived = task.Archived;
+            existingTask.UpdatedAt = DateTime.UtcNow;
+
             await _context.SaveChangesAsync();
             return NoContent();
         }
@@ -90,7 +99,7 @@ namespace EventifyBackend.Controllers
                 return NotFound();
 
             _context.EventTasks.Remove(task);
-            await _context.SaveChangesAsync();;
+            await _context.SaveChangesAsync();
             return NoContent();
         }
 
@@ -112,7 +121,7 @@ namespace EventifyBackend.Controllers
             return NoContent();
         }
 
-        // Optional: Get total budget for an event
+        // Get total budget for an event (sum of all non-archived tasks)
         [HttpGet("~/api/events/{eventId}/tasks/budget")]
         public async Task<ActionResult<decimal>> GetEventBudget(string eventId)
         {
@@ -123,9 +132,10 @@ namespace EventifyBackend.Controllers
                 .Where(t => t.EventId == parsedEventId && !t.Archived)
                 .ToListAsync();
 
-            // Assuming budget is stored as a string like "R120000"
+            // Assuming budget is stored as a string like "1200" or "R1200"
             decimal totalBudget = tasks
-                .Select(t => decimal.TryParse(t.Budget.Replace("R", "").Replace(" ", ""), out var b) ? b : 0)
+                .Select(t => decimal.TryParse(
+                    t.Budget.Replace("R", "").Replace(" ", "").Replace(",", "").Trim(), out var b) ? b : 0)
                 .Sum();
 
             return Ok(totalBudget);
