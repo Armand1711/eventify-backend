@@ -58,7 +58,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Improved CORS setup to handle all Netlify deploys and local dev
+// CORS setup: allow Netlify and local dev
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
