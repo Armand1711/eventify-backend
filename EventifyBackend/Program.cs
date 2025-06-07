@@ -70,8 +70,8 @@ builder.Services.AddCors(options =>
                 "https://splendid-heliotrope-468d3a.netlify.app"
             )
             .AllowAnyHeader()
-            .AllowAnyMethod();
-            // .AllowCredentials(); // Uncomment if you use cookies/auth headers
+            .AllowAnyMethod()
+            .AllowCredentials(); // <-- Add this line!
     });
 });
 
