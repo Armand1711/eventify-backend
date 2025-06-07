@@ -22,7 +22,7 @@ namespace EventifyBackend.Controllers
             return await _context.Events.ToListAsync();
         }
 
-        // GET: api/events/5
+        // GET: api/events/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<Event>> GetEvent(int id)
         {
@@ -41,7 +41,6 @@ namespace EventifyBackend.Controllers
             _context.Events.Add(evt);
             await _context.SaveChangesAsync();
 
-            // Return the created event with the auto-generated ID
             return CreatedAtAction(nameof(GetEvent), new { id = evt.Id }, evt);
         }
     }

@@ -9,15 +9,18 @@ namespace EventifyBackend.Models
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
+        [Required]
         [Column("title")]
         public string Title { get; set; } = string.Empty;
 
         [Column("description")]
         public string? Description { get; set; }
 
+        [Required]
         [Column("date")]
         public DateTime Date { get; set; }
 
+        [Required]
         [Column("userId")]
         public int UserId { get; set; }
 

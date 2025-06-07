@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "3xBbfW+l+v4=",
+  "dgSpecHash": "f/Wim9ntBl4=",
   "success": true,
-  "projectFilePath": "C:\\Users\\arman\\OneDrive\\Desktop\\eventify-backend\\EventifyBackend\\EventifyBackend.csproj",
+  "projectFilePath": "C:\\Users\\arman\\OneDrive\\Desktop\\eventify-backend\\EventifyBAckend\\EventifyBackend.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\arman\\.nuget\\packages\\bcrypt.net-next\\4.0.3\\bcrypt.net-next.4.0.3.nupkg.sha512",
     "C:\\Users\\arman\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
