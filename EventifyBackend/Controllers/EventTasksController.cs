@@ -85,9 +85,9 @@ namespace EventifyBackend.Controllers
 
             await _context.SaveChangesAsync();
             await CheckAndAutoArchiveEvent(parsedEventId);
-            // Optionally return the updated task:
-            // return Ok(existingTask);
-            return NoContent();
+
+            // Return the updated task
+            return Ok(existingTask);
         }
 
         [HttpDelete("{id}")]
