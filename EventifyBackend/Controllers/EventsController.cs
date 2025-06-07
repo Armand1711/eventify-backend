@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Models;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
 namespace EventifyBackend.Controllers
 {
@@ -34,10 +36,18 @@ namespace EventifyBackend.Controllers
 
         // POST: api/events
         [HttpPost]
+        [Authorize] // Make sure only logged-in users can create events
         public async Task<ActionResult<Event>> CreateEvent([FromBody] Event evt)
         {
+            // Get userId from JWT claims
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null)
+                return Unauthorized();
+
+            evt.UserId = int.Parse(userIdClaim.Value); // Set the userId automatically
             evt.CreatedAt = DateTime.UtcNow;
             evt.UpdatedAt = DateTime.UtcNow;
+
             _context.Events.Add(evt);
             await _context.SaveChangesAsync();
 
