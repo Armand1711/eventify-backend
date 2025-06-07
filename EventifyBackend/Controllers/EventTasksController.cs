@@ -93,5 +93,42 @@ namespace EventifyBackend.Controllers
             await _context.SaveChangesAsync();;
             return NoContent();
         }
+
+        [HttpPut("{id}/archive")]
+        public async Task<IActionResult> ArchiveTask(string eventId, string id)
+        {
+            if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int taskId))
+                return BadRequest("Invalid event ID or task ID.");
+
+            var task = await _context.EventTasks
+                .FirstOrDefaultAsync(t => t.EventId == parsedEventId && t.Id == taskId);
+            if (task == null)
+                return NotFound();
+
+            task.Archived = true;
+            task.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        // Optional: Get total budget for an event
+        [HttpGet("~/api/events/{eventId}/tasks/budget")]
+        public async Task<ActionResult<decimal>> GetEventBudget(string eventId)
+        {
+            if (!int.TryParse(eventId, out int parsedEventId))
+                return BadRequest("Invalid event ID.");
+
+            var tasks = await _context.EventTasks
+                .Where(t => t.EventId == parsedEventId && !t.Archived)
+                .ToListAsync();
+
+            // Assuming budget is stored as a string like "R120000"
+            decimal totalBudget = tasks
+                .Select(t => decimal.TryParse(t.Budget.Replace("R", "").Replace(" ", ""), out var b) ? b : 0)
+                .Sum();
+
+            return Ok(totalBudget);
+        }
     }
 }

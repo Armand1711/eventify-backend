@@ -38,5 +38,8 @@ namespace EventifyBackend.Models
 
         [Column("updatedAt")]
         public DateTime UpdatedAt { get; set; }
+
+        [Column("archived")]
+        public bool Archived { get; set; } = false; // For archiving tasks
     }
 }
