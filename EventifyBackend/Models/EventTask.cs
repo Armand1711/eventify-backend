@@ -1,13 +1,28 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EventifyBackend.Models
 {
     public class EventTask
     {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
         [Column("title")]
         public string Title { get; set; } = string.Empty;
+
+        [Column("priority")]
+        public string Priority { get; set; } = "Low";
+
+        [Column("assignedTo")]
+        public string AssignedTo { get; set; } = "";
+
+        [Column("budget")]
+        public string Budget { get; set; } = "";
+
+        [Column("completed")]
+        public bool Completed { get; set; } = false;
 
         [Column("description")]
         public string? Description { get; set; }
