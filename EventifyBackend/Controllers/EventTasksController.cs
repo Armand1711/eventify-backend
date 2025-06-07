@@ -84,6 +84,9 @@ namespace EventifyBackend.Controllers
             existingTask.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+            await CheckAndAutoArchiveEvent(parsedEventId);
+            // Optionally return the updated task:
+            // return Ok(existingTask);
             return NoContent();
         }
 
@@ -100,6 +103,7 @@ namespace EventifyBackend.Controllers
 
             _context.EventTasks.Remove(task);
             await _context.SaveChangesAsync();
+            await CheckAndAutoArchiveEvent(parsedEventId);
             return NoContent();
         }
 
@@ -117,6 +121,7 @@ namespace EventifyBackend.Controllers
             task.Archived = true;
             task.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+            await CheckAndAutoArchiveEvent(parsedEventId);
 
             return NoContent();
         }
@@ -163,6 +168,7 @@ namespace EventifyBackend.Controllers
             });
         }
 
+        // Auto-archive event if all tasks are completed
         private async Task CheckAndAutoArchiveEvent(int eventId)
         {
             var tasks = await _context.EventTasks
