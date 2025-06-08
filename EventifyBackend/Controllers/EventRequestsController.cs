@@ -28,16 +28,22 @@ namespace EventifyBackend.Controllers
                 return BadRequest(new { error = "Title, requester name, and email are required." });
             }
 
-            // Override client-provided values
-            request.CreatedAt = DateTime.UtcNow;
-            request.UpdatedAt = DateTime.UtcNow;
+            // Override client-provided values (Id is auto-generated, others set by DB)
+            request.CreatedAt = DateTime.UtcNow; // Ensure consistency, DB will override
+            request.UpdatedAt = DateTime.UtcNow; // Ensure consistency, DB will override
             request.Status = "Pending"; // Default status
             request.ProcessedByUserId = null; // Ignore client value, set to null
 
             _context.EventRequests.Add(request);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetEventRequest), new { id = request.Id }, request);
+            try
+            {
+                await _context.SaveChangesAsync();
+                return CreatedAtAction(nameof(GetEventRequest), new { id = request.Id }, request);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
 
         // GET: api/event-requests
@@ -79,8 +85,7 @@ namespace EventifyBackend.Controllers
             }
 
             request.Status = statusUpdate.Status;
-            request.UpdatedAt = DateTime.UtcNow;
-            // No processedByUserId update since it's not used
+            request.UpdatedAt = DateTime.UtcNow; // Update timestamp
 
             await _context.SaveChangesAsync();
             return Ok(request);

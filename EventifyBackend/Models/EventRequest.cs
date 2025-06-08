@@ -32,12 +32,12 @@ namespace EventifyBackend.Models
         public string Status { get; set; } = "Pending"; // Pending, Accepted, Denied
 
         [Column("createdAt")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } // Default set by database
 
         [Column("updatedAt")]
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } // Default set by database
 
         [Column("processedByUserId")]
-        public int? ProcessedByUserId { get; set; } // Optional, can be null
+        public int? ProcessedByUserId { get; set; } // Optional, nullable
     }
 }
