@@ -11,5 +11,15 @@ namespace EventifyBackend.Models
         public DbSet<EventTask> EventTasks { get; set; }
         public DbSet<Budget> Budgets { get; set; }
         public DbSet<Archive> Archives { get; set; }
+        public DbSet<EventRequest> EventRequests { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+            modelBuilder.HasDefaultSchema("public");
+            modelBuilder.Entity<User>().ToTable("Users").HasKey(u => u.Id); // Match your User model
+            modelBuilder.Entity<EventRequest>().ToTable("EventRequests");
+   
+        }
     }
 }
