@@ -31,11 +31,15 @@ namespace EventifyBackend.Controllers
                 Title = evt.Title,
                 Description = evt.Description,
                 Date = evt.Date,
-                UserId = userId
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
+
             _context.Archives.Add(archive);
-            _context.Events.Remove(evt);
+            _context.Events.Remove(evt); 
             await _context.SaveChangesAsync();
+
             return StatusCode(201, archive);
         }
 
@@ -43,7 +47,10 @@ namespace EventifyBackend.Controllers
         public async Task<IActionResult> GetArchives()
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            var archives = await _context.Archives.Where(a => a.UserId == userId).ToListAsync();
+            var archives = await _context.Archives
+                .Where(a => a.UserId == userId)
+                .ToListAsync();
+
             return Ok(archives);
         }
 
@@ -51,8 +58,11 @@ namespace EventifyBackend.Controllers
         public async Task<IActionResult> GetArchive(int archiveId)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            var archive = await _context.Archives.FirstOrDefaultAsync(a => a.Id == archiveId && a.UserId == userId);
+            var archive = await _context.Archives
+                .FirstOrDefaultAsync(a => a.Id == archiveId && a.UserId == userId);
+
             if (archive == null) return NotFound(new { error = "Archive not found" });
+
             return Ok(archive);
         }
 
@@ -60,7 +70,9 @@ namespace EventifyBackend.Controllers
         public async Task<IActionResult> DeleteArchive(int archiveId)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            var archive = await _context.Archives.FirstOrDefaultAsync(a => a.Id == archiveId && a.UserId == userId);
+            var archive = await _context.Archives
+                .FirstOrDefaultAsync(a => a.Id == archiveId && a.UserId == userId);
+
             if (archive == null) return NotFound(new { error = "Archive not found" });
 
             _context.Archives.Remove(archive);

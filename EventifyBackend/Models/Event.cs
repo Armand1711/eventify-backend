@@ -31,6 +31,6 @@ namespace EventifyBackend.Models
         public DateTime UpdatedAt { get; set; }
 
         [Column("archived")]
-        public bool Archived { get; set; } = false; // Add this line
+        public bool Archived { get; set; } = false;
     }
 }
