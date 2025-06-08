@@ -28,16 +28,8 @@ namespace EventifyBackend.Models
         [Column("requesterEmail")]
         public string RequesterEmail { get; set; } = string.Empty;
 
+        [Required]
         [Column("status")]
-        public string Status { get; set; } = "Pending"; // Pending, Accepted, Denied
-
-        [Column("createdAt")]
-        public DateTime CreatedAt { get; set; } // Default set by database
-
-        [Column("updatedAt")]
-        public DateTime UpdatedAt { get; set; } // Default set by database
-
-        [Column("processedByUserId")]
-        public int? ProcessedByUserId { get; set; } // Optional, nullable
+        public string Status { get; set; } = "Pending"; // Matches default in DB
     }
 }

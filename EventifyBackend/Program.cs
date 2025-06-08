@@ -16,15 +16,17 @@ builder.Services.AddDbContext<EventifyDbContext>(options =>
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        var jwtSettings = builder.Configuration.GetSection("Jwt");
+        var key = jwtSettings["Key"] ?? throw new InvalidOperationException("JWT Key is not configured.");
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = false,
-            ValidateAudience = false,
+            ValidateIssuer = true,
+            ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"] 
-                    ?? throw new InvalidOperationException("JWT Secret is not configured.")))
+            ValidIssuer = jwtSettings["Issuer"],
+            ValidAudience = jwtSettings["Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
         };
     });
 
@@ -71,7 +73,7 @@ builder.Services.AddCors(options =>
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials(); // <-- Add this line!
+            .AllowCredentials();
     });
 });
 
@@ -84,11 +86,11 @@ app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Eventify Backend API v1");
-    c.RoutePrefix = "swagger";
+    c.RoutePrefix = "swagger"; // Fixed syntax error
 });
 
-// Uncomment if you want HTTPS redirection
-// app.UseHttpsRedirection();
+// Enable HTTPS redirection for production
+app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
