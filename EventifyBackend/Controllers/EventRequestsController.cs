@@ -18,6 +18,7 @@ namespace EventifyBackend.Controllers
             _context = context;
         }
 
+        // POST: api/event-requests
         [HttpPost]
         [AllowAnonymous]
         public async Task<IActionResult> CreateEventRequest([FromBody] EventRequest request)
@@ -27,9 +28,11 @@ namespace EventifyBackend.Controllers
                 return BadRequest(new { error = "Title, requester name, and email are required." });
             }
 
+            // Override client-provided values
             request.CreatedAt = DateTime.UtcNow;
             request.UpdatedAt = DateTime.UtcNow;
-            request.Status = "Pending";
+            request.Status = "Pending"; // Default status
+            request.ProcessedByUserId = null; // Ignore client value, set to null
 
             _context.EventRequests.Add(request);
             await _context.SaveChangesAsync();
@@ -37,6 +40,7 @@ namespace EventifyBackend.Controllers
             return CreatedAtAction(nameof(GetEventRequest), new { id = request.Id }, request);
         }
 
+        // GET: api/event-requests
         [HttpGet]
         [Authorize]
         public async Task<IActionResult> GetEventRequests()
@@ -45,6 +49,7 @@ namespace EventifyBackend.Controllers
             return Ok(requests);
         }
 
+        // GET: api/event-requests/{id}
         [HttpGet("{id}")]
         [Authorize]
         public async Task<IActionResult> GetEventRequest(int id)
@@ -57,6 +62,7 @@ namespace EventifyBackend.Controllers
             return Ok(request);
         }
 
+        // PUT: api/event-requests/{id}/status
         [HttpPut("{id}/status")]
         [Authorize]
         public async Task<IActionResult> UpdateEventRequestStatus(int id, [FromBody] EventRequestStatusUpdate statusUpdate)
@@ -72,30 +78,9 @@ namespace EventifyBackend.Controllers
                 return NotFound(new { error = "Event request not found" });
             }
 
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-            if (userIdClaim == null)
-            {
-                return Unauthorized();
-            }
-
             request.Status = statusUpdate.Status;
             request.UpdatedAt = DateTime.UtcNow;
-            request.ProcessedByUserId = int.Parse(userIdClaim.Value);
-
-            if (statusUpdate.Status == "Accepted")
-            {
-                var newEvent = new Event
-                {
-                    Title = request.Title,
-                    Description = request.Description,
-                    Date = request.Date,
-                    UserId = int.Parse(userIdClaim.Value),
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    Archived = false
-                };
-                _context.Events.Add(newEvent);
-            }
+            // No processedByUserId update since it's not used
 
             await _context.SaveChangesAsync();
             return Ok(request);

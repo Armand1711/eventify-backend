@@ -38,6 +38,6 @@ namespace EventifyBackend.Models
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("processedByUserId")]
-        public int? ProcessedByUserId { get; set; } // Optional, for admin who processes the request
+        public int? ProcessedByUserId { get; set; } // Optional, can be null
     }
 }
