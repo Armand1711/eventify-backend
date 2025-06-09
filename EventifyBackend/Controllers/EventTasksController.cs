@@ -1,6 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Models;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System;
 
 namespace EventifyBackend.Controllers
 {
@@ -15,70 +19,69 @@ namespace EventifyBackend.Controllers
             _context = context;
         }
 
-        // GET: api/eventtasks
+        public class EventTaskDto
+        {
+            public int Id { get; set; }
+            public string Title { get; set; } = string.Empty;
+            public string Priority { get; set; } = "Low";
+            public string Budget { get; set; } = string.Empty;
+            public bool Completed { get; set; }
+            public string? Description { get; set; }
+            public DateTime? DueDate { get; set; }
+            public int EventId { get; set; }
+            public DateTime CreatedAt { get; set; }
+            public DateTime UpdatedAt { get; set; }
+            public bool Archived { get; set; }
+            public string? AssignedToEmail { get; set; }
+        }
+
+        public class CreateOrUpdateTaskDto
+        {
+            public string Title { get; set; } = string.Empty;
+            public string Priority { get; set; } = "Low";
+            public string Budget { get; set; } = string.Empty;
+            public bool Completed { get; set; } = false;
+            public string? Description { get; set; }
+            public DateTime? DueDate { get; set; }
+            public int EventId { get; set; }
+            public string AssignedToEmail { get; set; } = string.Empty;
+        }
+
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<object>>> GetEventTasks()
+        public async Task<ActionResult<IEnumerable<EventTaskDto>>> GetEventTasks()
         {
             var tasks = await _context.EventTasks
                 .Include(t => t.AssignedUser)
                 .ToListAsync();
 
-            var response = tasks.Select(t => new
-            {
-                t.Id,
-                t.Title,
-                t.Priority,
-                t.Budget,
-                t.Completed,
-                t.Description,
-                t.DueDate,
-                t.EventId,
-                t.CreatedAt,
-                t.UpdatedAt,
-                t.Archived,
-                AssignedToEmail = t.AssignedUser?.Email
-            });
-
+            var response = tasks.Select(t => MapToDto(t));
             return Ok(response);
         }
 
-        // GET: api/eventtasks/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<object>> GetEventTask(int id)
+        public async Task<ActionResult<EventTaskDto>> GetEventTask(int id)
         {
             var task = await _context.EventTasks
                 .Include(t => t.AssignedUser)
                 .FirstOrDefaultAsync(t => t.Id == id);
 
             if (task == null)
-                return NotFound(new { message = $"Task with ID {id} not found." });
+                return NotFound();
 
-            return Ok(new
-            {
-                task.Id,
-                task.Title,
-                task.Priority,
-                task.Budget,
-                task.Completed,
-                task.Description,
-                task.DueDate,
-                task.EventId,
-                task.CreatedAt,
-                task.UpdatedAt,
-                task.Archived,
-                AssignedToEmail = task.AssignedUser?.Email
-            });
+            return Ok(MapToDto(task));
         }
 
-        // POST: api/eventtasks
         [HttpPost]
-        public async Task<ActionResult<EventTask>> CreateEventTask([FromBody] CreateOrUpdateTaskDto request)
+        public async Task<ActionResult<EventTaskDto>> CreateEventTask([FromBody] CreateOrUpdateTaskDto request)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.AssignedToEmail);
             if (user == null)
                 return BadRequest(new { message = "Assigned user email not found." });
 
-            var newTask = new EventTask
+            var newTask = new EventTasks
             {
                 Title = request.Title,
                 Priority = request.Priority,
@@ -89,40 +92,29 @@ namespace EventifyBackend.Controllers
                 EventId = request.EventId,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                UserId = user.Id
+                UserId = user.Id,
+                Archived = false
             };
 
             _context.EventTasks.Add(newTask);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetEventTask), new { id = newTask.Id }, new
-            {
-                newTask.Id,
-                newTask.Title,
-                newTask.Priority,
-                newTask.Budget,
-                newTask.Completed,
-                newTask.Description,
-                newTask.DueDate,
-                newTask.EventId,
-                newTask.CreatedAt,
-                newTask.UpdatedAt,
-                newTask.Archived,
-                AssignedToEmail = user.Email
-            });
+            return CreatedAtAction(nameof(GetEventTask), new { id = newTask.Id }, MapToDto(newTask));
         }
 
-        // PUT: api/eventtasks/5
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateEventTask(int id, [FromBody] CreateOrUpdateTaskDto request)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             var task = await _context.EventTasks.FindAsync(id);
             if (task == null)
-                return NotFound(new { message = $"Task with ID {id} not found." });
+                return NotFound();
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.AssignedToEmail);
             if (user == null)
-                return BadRequest(new { message = $"Assigned user with email '{request.AssignedToEmail}' not found." });
+                return BadRequest(new { message = "Assigned user email not found." });
 
             task.Title = request.Title;
             task.Priority = request.Priority;
@@ -131,76 +123,43 @@ namespace EventifyBackend.Controllers
             task.Description = request.Description;
             task.DueDate = request.DueDate;
             task.EventId = request.EventId;
-            task.UpdatedAt = DateTime.UtcNow;
             task.UserId = user.Id;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException ex)
-            {
-                return StatusCode(500, new { message = "An error occurred while updating the task.", details = ex.Message });
-            }
-
-            return NoContent();
-        }
-
-        // PATCH: api/eventtasks/5/complete
-        [HttpPatch("{id}/complete")]
-        public async Task<IActionResult> MarkTaskComplete(int id)
-        {
-            var task = await _context.EventTasks.FindAsync(id);
-            if (task == null)
-                return NotFound(new { message = $"Task with ID {id} not found." });
-
-            task.Completed = true;
             task.UpdatedAt = DateTime.UtcNow;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException ex)
-            {
-                return StatusCode(500, new { message = "An error occurred while completing the task.", details = ex.Message });
-            }
-
+            await _context.SaveChangesAsync();
             return NoContent();
         }
 
-        // DELETE: api/eventtasks/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteEventTask(int id)
         {
             var task = await _context.EventTasks.FindAsync(id);
             if (task == null)
-                return NotFound(new { message = $"Task with ID {id} not found." });
+                return NotFound();
 
             _context.EventTasks.Remove(task);
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException ex)
-            {
-                return StatusCode(500, new { message = "An error occurred while deleting the task.", details = ex.Message });
-            }
+            await _context.SaveChangesAsync();
 
             return NoContent();
         }
-    }
 
-    public class CreateOrUpdateTaskDto
-    {
-        public string Title { get; set; } = string.Empty;
-        public string Priority { get; set; } = "Low";
-        public string Budget { get; set; } = "";
-        public bool Completed { get; set; } = false;
-        public string? Description { get; set; }
-        public DateTime? DueDate { get; set; }
-        public int EventId { get; set; }
-        public string AssignedToEmail { get; set; } = "";
+        private static EventTaskDto MapToDto(EventTasks t)
+        {
+            return new EventTaskDto
+            {
+                Id = t.Id,
+                Title = t.Title,
+                Priority = t.Priority,
+                Budget = t.Budget,
+                Completed = t.Completed,
+                Description = t.Description,
+                DueDate = t.DueDate,
+                EventId = t.EventId,
+                CreatedAt = t.CreatedAt,
+                UpdatedAt = t.UpdatedAt,
+                Archived = t.Archived,
+                AssignedToEmail = t.AssignedUser?.Email
+            };
+        }
     }
 }

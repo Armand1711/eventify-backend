@@ -12,42 +12,65 @@ namespace EventifyBackend.Models
         public int Id { get; set; }
 
         [Required]
+        [Column("name")]
+        public string Name { get; set; } = string.Empty;
+
+        // other event properties
+        public DateTime Date { get; set; }
+
+        public bool Archived { get; set; } = false;
+
+        [Column("userId")]
+        public int UserId { get; set; }
+
+        // Navigation property for tasks
+        public List<EventTask> Tasks { get; set; } = new();
+    }
+
+    public class EventTask
+    {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int Id { get; set; }
+
+        [Required]
         [Column("title")]
         public string Title { get; set; } = string.Empty;
+
+        [Column("priority")]
+        public string Priority { get; set; } = "Low";
+
+        [Column("budget")]
+        public string Budget { get; set; } = string.Empty;
+
+        [Column("completed")]
+        public bool Completed { get; set; } = false;
 
         [Column("description")]
         public string? Description { get; set; }
 
-        [Required]
-        [Column("date")]
-        public DateTime Date { get; set; }
+        [Column("dueDate")]
+        public DateTime? DueDate { get; set; }
 
-        // Foreign key to User
-        [Required]
-        [Column("userId")]
-        public int UserId { get; set; }
+        [Column("eventId")]
+        public int EventId { get; set; }
 
-        // Optional: Navigation property to User
-        [ForeignKey("UserId")]
-        public virtual User? User { get; set; }
+        [ForeignKey("EventId")]
+        public Event? Event { get; set; }
 
         [Column("createdAt")]
-        public DateTime CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("updatedAt")]
-        public DateTime UpdatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("archived")]
         public bool Archived { get; set; } = false;
 
-        // Navigation property for related EventTasks
-        public virtual ICollection<EventTask> Tasks { get; set; }
+        [Column("userId")]
+        public int UserId { get; set; }
 
-        public Event()
-        {
-            CreatedAt = DateTime.UtcNow;
-            UpdatedAt = DateTime.UtcNow;
-            Tasks = new List<EventTask>();
-        }
+        // Navigation property for user assigned to the task (if needed)
+        // public User AssignedUser { get; set; } = null!;
     }
 }
