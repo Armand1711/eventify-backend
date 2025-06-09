@@ -35,7 +35,7 @@ namespace EventifyBackend.Models
         [Column("eventId")]
         public int EventId { get; set; }
 
-        // Navigation property for Event (optional but recommended)
+        // Navigation property for Event
         [ForeignKey("EventId")]
         public Event? Event { get; set; }
 

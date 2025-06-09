@@ -45,14 +45,19 @@ namespace EventifyBackend.Controllers
             return Ok(events);
         }
 
-        // GET api/events/{id} -- authorized users only
+        // GET api/events/{id} -- authorized users only, include tasks
         [HttpGet("{id}")]
         public async Task<ActionResult<Event>> GetEvent(int id)
         {
-            var evt = await _context.Events.FindAsync(id);
-            if (evt == null) return NotFound();
-
             var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized();
+
+            var evt = await _context.Events
+                .Include(e => e.Tasks)  // Load related tasks
+                .FirstOrDefaultAsync(e => e.Id == id);
+
+            if (evt == null) return NotFound();
             if (evt.UserId != userId) return Forbid();
 
             return Ok(evt);

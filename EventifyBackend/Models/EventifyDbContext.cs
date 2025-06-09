@@ -27,6 +27,13 @@ namespace EventifyBackend.Models
                 .WithMany()
                 .HasForeignKey(et => et.UserId)
                 .OnDelete(DeleteBehavior.Restrict); // Prevent cascading delete (optional)
+
+            // Configure relationship between Event and EventTask (one-to-many)
+            modelBuilder.Entity<Event>()
+                .HasMany(e => e.Tasks)
+                .WithOne(t => t.Event)
+                .HasForeignKey(t => t.EventId)
+                .OnDelete(DeleteBehavior.Cascade);  // Cascade delete tasks when event is deleted
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -38,5 +39,8 @@ namespace EventifyBackend.Models
 
         [Column("archived")]
         public bool Archived { get; set; } = false;
+
+        // Navigation property for related EventTasks
+        public ICollection<EventTask> Tasks { get; set; } = new List<EventTask>();
     }
 }
