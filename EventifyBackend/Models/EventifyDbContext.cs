@@ -7,11 +7,11 @@ namespace EventifyBackend.Models
         public EventifyDbContext(DbContextOptions<EventifyDbContext> options) : base(options) { }
 
         public DbSet<User> Users { get; set; }
-        public DbSet<Event> Events { get; set; }
         public DbSet<EventTask> EventTasks { get; set; }
         public DbSet<Budget> Budgets { get; set; }
         public DbSet<Archive> Archives { get; set; }
         public DbSet<EventRequest> EventRequests { get; set; }
+        public DbSet<Event> Events { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -19,7 +19,7 @@ namespace EventifyBackend.Models
             modelBuilder.HasDefaultSchema("public");
             modelBuilder.Entity<User>().ToTable("Users").HasKey(u => u.Id); // Match your User model
             modelBuilder.Entity<EventRequest>().ToTable("EventRequests");
-   
+
         }
     }
 }

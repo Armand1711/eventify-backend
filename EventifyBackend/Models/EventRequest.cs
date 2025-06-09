@@ -30,6 +30,16 @@ namespace EventifyBackend.Models
 
         [Required]
         [Column("status")]
-        public string Status { get; set; } = "Pending"; // Matches default in DB
+        public string Status { get; set; } = "Pending";
+
+        [Required]
+        [Column("userId")]
+        public int UserId { get; set; }
+
+        [Column("createdAt")]
+        public DateTime CreatedAt { get; set; }
+
+        [Column("updatedAt")]
+        public DateTime UpdatedAt { get; set; }
     }
 }
