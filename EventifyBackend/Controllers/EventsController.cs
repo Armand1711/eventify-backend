@@ -20,7 +20,7 @@ namespace EventifyBackend.Controllers
 
         // GET api/events/all -- publicly accessible, returns all events
         [HttpGet("all")]
-        [AllowAnonymous] // Override controller-level Authorize to allow public access
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Event>>> GetAllEvents()
         {
             var events = await _context.Events.ToListAsync();
@@ -45,7 +45,7 @@ namespace EventifyBackend.Controllers
             return Ok(events);
         }
 
-        // GET api/events/{id} -- authorized users only, include tasks
+        // GET api/events/{id} -- any authenticated user can view event and tasks
         [HttpGet("{id}")]
         public async Task<ActionResult<Event>> GetEvent(int id)
         {
@@ -58,14 +58,15 @@ namespace EventifyBackend.Controllers
                 .FirstOrDefaultAsync(e => e.Id == id);
 
             if (evt == null) return NotFound();
-            if (evt.UserId != userId) return Forbid();
+
+            // Remove owner check: any signed-in user can view event
 
             return Ok(evt);
         }
 
-        // NEW: GET api/events/{id}/tasks -- public, returns tasks for an event
+        // GET api/events/{id}/tasks -- public, returns tasks for an event
         [HttpGet("{id}/tasks")]
-        [AllowAnonymous]  // Anyone can access
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<EventTask>>> GetTasksForEvent(int id)
         {
             var evt = await _context.Events.FindAsync(id);
@@ -76,6 +77,28 @@ namespace EventifyBackend.Controllers
                 .ToListAsync();
 
             return Ok(tasks);
+        }
+
+        // POST api/events/{id}/tasks -- add new task to event, authorized users only
+        [HttpPost("{id}/tasks")]
+        public async Task<ActionResult<EventTask>> AddTaskToEvent(int id, [FromBody] EventTask task)
+        {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized();
+
+            var evt = await _context.Events.FindAsync(id);
+            if (evt == null) return NotFound();
+
+            task.EventId = id;
+            task.UserId = userId.Value;
+            task.CreatedAt = DateTime.UtcNow;
+            task.UpdatedAt = DateTime.UtcNow;
+
+            _context.EventTasks.Add(task);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetTasksForEvent), new { id = id }, task);
         }
 
         // POST api/events -- authorized users only
