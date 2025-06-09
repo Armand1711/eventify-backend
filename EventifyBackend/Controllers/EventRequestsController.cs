@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System;
 
 namespace EventifyBackend.Controllers
 {
@@ -18,14 +21,14 @@ namespace EventifyBackend.Controllers
 
         // POST: api/eventrequests
         [HttpPost]
-        [Authorize]
+        // No [Authorize] here so users can create event requests without logging in
         public async Task<IActionResult> PostEventRequest([FromBody] EventRequest eventRequest)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
             // Set server-side values
-            eventRequest.Id = 0; // Ensure it's treated as new
+            eventRequest.Id = 0; // Ensure treated as new entity
             eventRequest.CreatedAt = DateTime.UtcNow;
             eventRequest.UpdatedAt = DateTime.UtcNow;
 
@@ -36,7 +39,7 @@ namespace EventifyBackend.Controllers
             {
                 _context.EventRequests.Add(eventRequest);
                 await _context.SaveChangesAsync();
-                return Ok(eventRequest); // return the created object
+                return Ok(eventRequest);
             }
             catch (DbUpdateException dbEx)
             {
