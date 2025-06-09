@@ -5,9 +5,8 @@ using EventifyBackend.Models;
 
 namespace EventifyBackend.Controllers
 {
-    [Route("api/eventrequests")]
+    [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class EventRequestsController : ControllerBase
     {
         private readonly EventifyDbContext _context;
@@ -17,55 +16,77 @@ namespace EventifyBackend.Controllers
             _context = context;
         }
 
+        // POST: api/eventrequests
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> PostEventRequest([FromBody] EventRequest eventRequest)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            // Set server-side values
+            eventRequest.Id = 0; // Ensure it's treated as new
+            eventRequest.CreatedAt = DateTime.UtcNow;
+            eventRequest.UpdatedAt = DateTime.UtcNow;
+
+            if (string.IsNullOrWhiteSpace(eventRequest.Status))
+                eventRequest.Status = "Pending";
+
+            try
+            {
+                _context.EventRequests.Add(eventRequest);
+                await _context.SaveChangesAsync();
+                return Ok(eventRequest); // return the created object
+            }
+            catch (DbUpdateException dbEx)
+            {
+                return StatusCode(500, $"Database update error: {dbEx.InnerException?.Message ?? dbEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
         // GET: api/eventrequests
         [HttpGet]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<EventRequest>>> GetEventRequests()
         {
             return await _context.EventRequests.ToListAsync();
         }
 
-        // POST: api/eventrequests
-        [HttpPost]
-        public async Task<ActionResult<EventRequest>> CreateEventRequest([FromBody] EventRequest request)
+        // GET: api/eventrequests/5
+        [HttpGet("{id}")]
+        [Authorize]
+        public async Task<ActionResult<EventRequest>> GetEventRequest(int id)
         {
-            request.CreatedAt = DateTime.UtcNow;
-            request.UpdatedAt = DateTime.UtcNow;
+            var eventRequest = await _context.EventRequests.FindAsync(id);
+            if (eventRequest == null)
+                return NotFound();
 
-            _context.EventRequests.Add(request);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetEventRequests), new { id = request.Id }, request);
+            return eventRequest;
         }
 
         // PUT: api/eventrequests/{id}/accept
         [HttpPut("{id}/accept")]
-        public async Task<IActionResult> AcceptRequest(int id)
+        [Authorize]
+        public async Task<IActionResult> AcceptEventRequest(int id)
         {
             var request = await _context.EventRequests.FindAsync(id);
             if (request == null) return NotFound();
 
-            // Move to Events table
-            var newEvent = new Event
-            {
-                Title = request.Title,
-                Description = request.Description,
-                Date = request.Date,
-                UserId = request.UserId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                Archived = false
-            };
-
-            _context.Events.Add(newEvent);
-            _context.EventRequests.Remove(request);
+            request.Status = "Accepted";
+            request.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-            return NoContent();
+            return Ok(request);
         }
 
         // DELETE: api/eventrequests/{id}/deny
         [HttpDelete("{id}/deny")]
-        public async Task<IActionResult> DenyRequest(int id)
+        [Authorize]
+        public async Task<IActionResult> DenyEventRequest(int id)
         {
             var request = await _context.EventRequests.FindAsync(id);
             if (request == null) return NotFound();
