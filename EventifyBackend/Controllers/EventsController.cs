@@ -63,6 +63,21 @@ namespace EventifyBackend.Controllers
             return Ok(evt);
         }
 
+        // NEW: GET api/events/{id}/tasks -- public, returns tasks for an event
+        [HttpGet("{id}/tasks")]
+        [AllowAnonymous]  // Anyone can access
+        public async Task<ActionResult<IEnumerable<EventTask>>> GetTasksForEvent(int id)
+        {
+            var evt = await _context.Events.FindAsync(id);
+            if (evt == null) return NotFound();
+
+            var tasks = await _context.EventTasks
+                .Where(t => t.EventId == id && !t.Archived)
+                .ToListAsync();
+
+            return Ok(tasks);
+        }
+
         // POST api/events -- authorized users only
         [HttpPost]
         public async Task<ActionResult<Event>> CreateEvent([FromBody] Event evt)
