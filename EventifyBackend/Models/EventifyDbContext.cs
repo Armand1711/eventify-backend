@@ -17,9 +17,16 @@ namespace EventifyBackend.Models
         {
             base.OnModelCreating(modelBuilder);
             modelBuilder.HasDefaultSchema("public");
-            modelBuilder.Entity<User>().ToTable("Users").HasKey(u => u.Id); // Match your User model
+
+            modelBuilder.Entity<User>().ToTable("Users").HasKey(u => u.Id);
             modelBuilder.Entity<EventRequest>().ToTable("EventRequests");
 
+            // Configure relationship between EventTask and User
+            modelBuilder.Entity<EventTask>()
+                .HasOne(et => et.AssignedUser)
+                .WithMany()
+                .HasForeignKey(et => et.UserId)
+                .OnDelete(DeleteBehavior.Restrict); // Prevent cascading delete (optional)
         }
     }
 }

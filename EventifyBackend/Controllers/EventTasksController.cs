@@ -1,12 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Models;
-using System.Threading.Tasks;
-using System.Linq;
 
 namespace EventifyBackend.Controllers
 {
-    [Route("api/events/{eventId}/tasks")]
+    [Route("api/eventtasks")]
     [ApiController]
     public class EventTasksController : ControllerBase
     {
@@ -17,196 +15,154 @@ namespace EventifyBackend.Controllers
             _context = context;
         }
 
+        // GET: api/eventtasks
         [HttpGet]
-        public async Task<IActionResult> GetTasks(string eventId)
+        public async Task<ActionResult<IEnumerable<object>>> GetEventTasks()
         {
-            if (!int.TryParse(eventId, out int parsedEventId))
-                return BadRequest("Invalid event ID.");
-
             var tasks = await _context.EventTasks
-                .Where(t => t.EventId == parsedEventId)
-                .ToListAsync();
-            return Ok(tasks);
-        }
-
-        [HttpGet("incomplete")]
-        public async Task<IActionResult> GetIncompleteTasks(string eventId)
-        {
-            if (!int.TryParse(eventId, out int parsedEventId))
-                return BadRequest("Invalid event ID.");
-
-            var incompleteTasks = await _context.EventTasks
-                .Where(t => t.EventId == parsedEventId && !t.Completed && !t.Archived)
+                .Include(t => t.AssignedUser)
                 .ToListAsync();
 
-            return Ok(incompleteTasks);
+            var response = tasks.Select(t => new
+            {
+                t.Id,
+                t.Title,
+                t.Priority,
+                t.Budget,
+                t.Completed,
+                t.Description,
+                t.DueDate,
+                t.EventId,
+                t.CreatedAt,
+                t.UpdatedAt,
+                t.Archived,
+                AssignedToEmail = t.AssignedUser?.Email
+            });
+
+            return Ok(response);
         }
 
-        [HttpGet("completed")]
-        public async Task<IActionResult> GetCompletedTasks(string eventId)
-        {
-            if (!int.TryParse(eventId, out int parsedEventId))
-                return BadRequest("Invalid event ID.");
-
-            var completedTasks = await _context.EventTasks
-                .Where(t => t.EventId == parsedEventId && t.Completed && !t.Archived)
-                .ToListAsync();
-
-            return Ok(completedTasks);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> CreateTask(string eventId, [FromBody] EventTask task)
-        {
-            if (!int.TryParse(eventId, out int parsedEventId))
-                return BadRequest("Invalid event ID.");
-
-            if (task == null)
-                return BadRequest("Task data is required.");
-
-            task.EventId = parsedEventId;
-            task.CreatedAt = DateTime.UtcNow;
-            task.UpdatedAt = DateTime.UtcNow;
-            _context.EventTasks.Add(task);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetTask), new { eventId = eventId, id = task.Id }, task);
-        }
-
+        // GET: api/eventtasks/5
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetTask(string eventId, string id)
+        public async Task<ActionResult<object>> GetEventTask(int id)
         {
-            if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int taskId))
-                return BadRequest("Invalid event ID or task ID.");
-
             var task = await _context.EventTasks
-                .FirstOrDefaultAsync(t => t.EventId == parsedEventId && t.Id == taskId);
+                .Include(t => t.AssignedUser)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
             if (task == null)
                 return NotFound();
-            return Ok(task);
+
+            return Ok(new
+            {
+                task.Id,
+                task.Title,
+                task.Priority,
+                task.Budget,
+                task.Completed,
+                task.Description,
+                task.DueDate,
+                task.EventId,
+                task.CreatedAt,
+                task.UpdatedAt,
+                task.Archived,
+                AssignedToEmail = task.AssignedUser?.Email
+            });
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateTask(string eventId, string id, [FromBody] EventTask task)
+        // POST: api/eventtasks
+        [HttpPost]
+        public async Task<ActionResult<EventTask>> CreateEventTask([FromBody] CreateOrUpdateTaskDto request)
         {
-            if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int taskId))
-                return BadRequest("Invalid event ID or task ID.");
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.AssignedToEmail);
+            if (user == null)
+                return BadRequest(new { message = "Assigned user email not found." });
 
+            var newTask = new EventTask
+            {
+                Title = request.Title,
+                Priority = request.Priority,
+                Budget = request.Budget,
+                Completed = request.Completed,
+                Description = request.Description,
+                DueDate = request.DueDate,
+                EventId = request.EventId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                UserId = user.Id
+            };
+
+            _context.EventTasks.Add(newTask);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetEventTask), new { id = newTask.Id }, new
+            {
+                newTask.Id,
+                newTask.Title,
+                newTask.Priority,
+                newTask.Budget,
+                newTask.Completed,
+                newTask.Description,
+                newTask.DueDate,
+                newTask.EventId,
+                newTask.CreatedAt,
+                newTask.UpdatedAt,
+                newTask.Archived,
+                AssignedToEmail = user.Email
+            });
+        }
+
+        // PUT: api/eventtasks/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateEventTask(int id, [FromBody] CreateOrUpdateTaskDto request)
+        {
+            var task = await _context.EventTasks.FindAsync(id);
             if (task == null)
-                return BadRequest("Task data is required.");
-
-            var existingTask = await _context.EventTasks
-                .FirstOrDefaultAsync(t => t.EventId == parsedEventId && t.Id == taskId);
-            if (existingTask == null)
                 return NotFound();
 
-            existingTask.Title = task.Title;
-            existingTask.Description = task.Description;
-            existingTask.DueDate = task.DueDate;
-            existingTask.Priority = task.Priority;
-            existingTask.AssignedTo = task.AssignedTo;
-            existingTask.Budget = task.Budget;
-            existingTask.Completed = task.Completed;
-            existingTask.Archived = task.Archived;
-            existingTask.UpdatedAt = DateTime.UtcNow;
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.AssignedToEmail);
+            if (user == null)
+                return BadRequest(new { message = "Assigned user email not found." });
+
+            task.Title = request.Title;
+            task.Priority = request.Priority;
+            task.Budget = request.Budget;
+            task.Completed = request.Completed;
+            task.Description = request.Description;
+            task.DueDate = request.DueDate;
+            task.EventId = request.EventId;
+            task.UpdatedAt = DateTime.UtcNow;
+            task.UserId = user.Id;
 
             await _context.SaveChangesAsync();
-            await CheckAndAutoArchiveEvent(parsedEventId);
 
-            return Ok(existingTask);
+            return NoContent();
         }
 
+        // DELETE: api/eventtasks/5
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTask(string eventId, string id)
+        public async Task<IActionResult> DeleteEventTask(int id)
         {
-            if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int taskId))
-                return BadRequest("Invalid event ID or task ID.");
-
-            var task = await _context.EventTasks
-                .FirstOrDefaultAsync(t => t.EventId == parsedEventId && t.Id == taskId);
+            var task = await _context.EventTasks.FindAsync(id);
             if (task == null)
                 return NotFound();
 
             _context.EventTasks.Remove(task);
             await _context.SaveChangesAsync();
-            await CheckAndAutoArchiveEvent(parsedEventId);
-            return NoContent();
-        }
-
-        [HttpPut("{id}/archive")]
-        public async Task<IActionResult> ArchiveTask(string eventId, string id)
-        {
-            if (!int.TryParse(eventId, out int parsedEventId) || !int.TryParse(id, out int taskId))
-                return BadRequest("Invalid event ID or task ID.");
-
-            var task = await _context.EventTasks
-                .FirstOrDefaultAsync(t => t.EventId == parsedEventId && t.Id == taskId);
-            if (task == null)
-                return NotFound();
-
-            task.Archived = true;
-            task.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-            await CheckAndAutoArchiveEvent(parsedEventId);
 
             return NoContent();
         }
+    }
 
-        [HttpGet("~/api/events/{eventId}/tasks/budget")]
-        public async Task<ActionResult<decimal>> GetEventBudget(string eventId)
-        {
-            if (!int.TryParse(eventId, out int parsedEventId))
-                return BadRequest("Invalid event ID.");
-
-            var tasks = await _context.EventTasks
-                .Where(t => t.EventId == parsedEventId && !t.Archived)
-                .ToListAsync();
-
-            decimal totalBudget = tasks
-                .Select(t => decimal.TryParse(
-                    t.Budget.Replace("R", "").Replace(" ", "").Replace(",", "").Trim(), out var b) ? b : 0)
-                .Sum();
-
-            return Ok(totalBudget);
-        }
-
-        [HttpGet("~/api/events/{eventId}/tasks/completion")]
-        public async Task<IActionResult> GetTaskCompletion(string eventId)
-        {
-            if (!int.TryParse(eventId, out int parsedEventId))
-                return BadRequest("Invalid event ID.");
-
-            var tasks = await _context.EventTasks
-                .Where(t => t.EventId == parsedEventId && !t.Archived)
-                .ToListAsync();
-
-            int total = tasks.Count;
-            int completed = tasks.Count(t => t.Completed);
-            int notCompleted = total - completed;
-
-            return Ok(new
-            {
-                totalTasks = total,
-                completedTasks = completed,
-                notCompletedTasks = notCompleted
-            });
-        }
-
-        private async Task CheckAndAutoArchiveEvent(int eventId)
-        {
-            var tasks = await _context.EventTasks
-                .Where(t => t.EventId == eventId && !t.Archived)
-                .ToListAsync();
-
-            if (tasks.Count > 0 && tasks.All(t => t.Completed))
-            {
-                var evt = await _context.Events.FirstOrDefaultAsync(e => e.Id == eventId);
-                if (evt != null && !evt.Archived)
-                {
-                    evt.Archived = true;
-                    evt.UpdatedAt = DateTime.UtcNow;
-                    await _context.SaveChangesAsync();
-                }
-            }
-        }
+    public class CreateOrUpdateTaskDto
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Priority { get; set; } = "Low";
+        public string Budget { get; set; } = "";
+        public bool Completed { get; set; } = false;
+        public string? Description { get; set; }
+        public DateTime? DueDate { get; set; }
+        public int EventId { get; set; }
+        public string AssignedToEmail { get; set; } = "";
     }
 }

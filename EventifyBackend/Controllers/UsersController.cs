@@ -97,6 +97,29 @@ namespace EventifyBackend.Controllers
                 return StatusCode(500, new { message = ex.Message, stack = ex.StackTrace });
             }
         }
+
+        // ✅ New GET endpoint to fetch all users
+        [HttpGet]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            try
+            {
+                var users = await _context.Users
+                    .Select(u => new
+                    {
+                        u.Id,
+                        u.Email
+                        // Add more fields here if needed (e.g., Name, Role, etc.)
+                    })
+                    .ToListAsync();
+
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message, stack = ex.StackTrace });
+            }
+        }
     }
 
     public class LoginRequest
