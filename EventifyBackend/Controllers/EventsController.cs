@@ -5,6 +5,7 @@ using EventifyBackend.Models;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace EventifyBackend.Controllers
 {
@@ -14,10 +15,12 @@ namespace EventifyBackend.Controllers
     public class EventsController : ControllerBase
     {
         private readonly EventifyDbContext _context;
+        private readonly ILogger<EventsController> _logger;
 
-        public EventsController(EventifyDbContext context)
+        public EventsController(EventifyDbContext context, ILogger<EventsController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         // GET: api/events/all -- publicly accessible, returns all events
@@ -52,7 +55,10 @@ namespace EventifyBackend.Controllers
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
+            {
+                _logger.LogWarning("User not authenticated for GetEvent {Id}", id);
                 return Problem(detail: "User not authenticated", statusCode: StatusCodes.Status401Unauthorized);
+            }
 
             var evt = await _context.Events
                 .Select(e => new Event
@@ -70,7 +76,10 @@ namespace EventifyBackend.Controllers
                 .FirstOrDefaultAsync(e => e.Id == id);
 
             if (evt == null)
-                return Problem(detail: "Event not found", statusCode: StatusCodes.Status404NotFound);
+            {
+                _logger.LogWarning("Event not found for Id {Id}", id);
+                return NotFound(new { error = "Event not found" });
+            }
 
             return Ok(evt);
         }
@@ -108,8 +117,6 @@ namespace EventifyBackend.Controllers
                 return StatusCode(500, new { error = "Database update error", details = ex.InnerException?.Message ?? ex.Message });
             }
         }
-
-        // ... (other methods like AddTaskToEvent remain unchanged)
 
         // Helper to extract UserId from JWT token claims
         private int? GetUserIdFromToken()
