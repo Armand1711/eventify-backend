@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Models;
 using System.Threading.Tasks;
 using System.Linq;
-using System;
 
 namespace EventifyBackend.Controllers
 {
@@ -28,6 +27,32 @@ namespace EventifyBackend.Controllers
                 .Where(t => t.EventId == parsedEventId)
                 .ToListAsync();
             return Ok(tasks);
+        }
+
+        [HttpGet("incomplete")]
+        public async Task<IActionResult> GetIncompleteTasks(string eventId)
+        {
+            if (!int.TryParse(eventId, out int parsedEventId))
+                return BadRequest("Invalid event ID.");
+
+            var incompleteTasks = await _context.EventTasks
+                .Where(t => t.EventId == parsedEventId && !t.Completed && !t.Archived)
+                .ToListAsync();
+
+            return Ok(incompleteTasks);
+        }
+
+        [HttpGet("completed")]
+        public async Task<IActionResult> GetCompletedTasks(string eventId)
+        {
+            if (!int.TryParse(eventId, out int parsedEventId))
+                return BadRequest("Invalid event ID.");
+
+            var completedTasks = await _context.EventTasks
+                .Where(t => t.EventId == parsedEventId && t.Completed && !t.Archived)
+                .ToListAsync();
+
+            return Ok(completedTasks);
         }
 
         [HttpPost]
@@ -126,7 +151,6 @@ namespace EventifyBackend.Controllers
             return NoContent();
         }
 
-        // Get total budget for an event (sum of all non-archived tasks)
         [HttpGet("~/api/events/{eventId}/tasks/budget")]
         public async Task<ActionResult<decimal>> GetEventBudget(string eventId)
         {
@@ -165,17 +189,6 @@ namespace EventifyBackend.Controllers
                 completedTasks = completed,
                 notCompletedTasks = notCompleted
             });
-        }
-
-        // NEW endpoint to get all tasks that are NOT completed (across all events)
-        [HttpGet("~/api/eventtasks/notcompleted")]
-        public async Task<IActionResult> GetAllNotCompletedTasks()
-        {
-            var tasks = await _context.EventTasks
-                .Where(t => !t.Completed && !t.Archived)
-                .ToListAsync();
-
-            return Ok(tasks);
         }
 
         private async Task CheckAndAutoArchiveEvent(int eventId)

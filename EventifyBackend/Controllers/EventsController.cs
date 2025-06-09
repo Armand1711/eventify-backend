@@ -8,7 +8,7 @@ namespace EventifyBackend.Controllers
 {
     [Route("api/events")]
     [ApiController]
-    [Authorize] // Require JWT bearer token for all actions here
+    [Authorize] // Require JWT bearer token for all actions by default
     public class EventsController : ControllerBase
     {
         private readonly EventifyDbContext _context;
@@ -18,36 +18,47 @@ namespace EventifyBackend.Controllers
             _context = context;
         }
 
-        // GET api/events
+        // GET api/events/all -- publicly accessible, returns all events
+        [HttpGet("all")]
+        [AllowAnonymous] // Override controller-level Authorize to allow public access
+        public async Task<ActionResult<IEnumerable<Event>>> GetAllEvents()
+        {
+            var events = await _context.Events.ToListAsync();
+            return Ok(events);
+        }
+
+        // GET api/events?includeArchived=false -- authorized users only, returns user-specific events
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Event>>> GetUserEvents()
+        public async Task<ActionResult<IEnumerable<Event>>> GetUserEvents([FromQuery] bool includeArchived = false)
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
                 return Unauthorized();
 
-            var events = await _context.Events
-                .Where(e => e.UserId == userId && !e.Archived)
-                .ToListAsync();
+            var query = _context.Events.Where(e => e.UserId == userId);
+
+            if (!includeArchived)
+                query = query.Where(e => !e.Archived);
+
+            var events = await query.ToListAsync();
 
             return Ok(events);
         }
 
-        // GET api/events/{id}
+        // GET api/events/{id} -- authorized users only
         [HttpGet("{id}")]
         public async Task<ActionResult<Event>> GetEvent(int id)
         {
             var evt = await _context.Events.FindAsync(id);
             if (evt == null) return NotFound();
 
-            // Check if current user owns the event
             var userId = GetUserIdFromToken();
             if (evt.UserId != userId) return Forbid();
 
             return Ok(evt);
         }
 
-        // POST api/events
+        // POST api/events -- authorized users only
         [HttpPost]
         public async Task<ActionResult<Event>> CreateEvent([FromBody] Event evt)
         {
@@ -55,14 +66,12 @@ namespace EventifyBackend.Controllers
             if (userId == null)
                 return Unauthorized();
 
-            // Override userId with token userId for security
             evt.UserId = userId.Value;
             evt.CreatedAt = DateTime.UtcNow;
             evt.UpdatedAt = DateTime.UtcNow;
 
             if (evt.Archived)
             {
-                // Save as archive
                 var archive = new Archive
                 {
                     EventId = evt.Id,
@@ -85,7 +94,7 @@ namespace EventifyBackend.Controllers
             return CreatedAtAction(nameof(GetEvent), new { id = evt.Id }, evt);
         }
 
-        // PUT api/events/{id}/archive
+        // PUT api/events/{id}/archive -- authorized users only
         [HttpPut("{id}/archive")]
         public async Task<IActionResult> ArchiveEvent(int id)
         {
