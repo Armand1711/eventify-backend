@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using EventifyBackend.Models; // Ensure this includes the correct model
+using EventifyBackend.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System;
 using System.Security.Claims;
+using Microsoft.Extensions.Logging;
 
 namespace EventifyBackend.Controllers
 {
@@ -14,10 +15,12 @@ namespace EventifyBackend.Controllers
     public class EventRequestsController : ControllerBase
     {
         private readonly EventifyDbContext _context;
+        private readonly ILogger<EventRequestsController> _logger;
 
-        public EventRequestsController(EventifyDbContext context)
+        public EventRequestsController(EventifyDbContext context, ILogger<EventRequestsController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         // POST: api/eventrequests
@@ -26,7 +29,10 @@ namespace EventifyBackend.Controllers
         public async Task<IActionResult> PostEventRequest([FromBody] EventifyBackend.Models.EventRequest eventRequest)
         {
             if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Model validation failed: {@ModelState}", ModelState);
                 return BadRequest(ModelState);
+            }
 
             // Set server-side values
             eventRequest.Id = 0; // Ensure treated as new entity
@@ -44,10 +50,12 @@ namespace EventifyBackend.Controllers
             }
             catch (DbUpdateException dbEx)
             {
+                _logger.LogError(dbEx, "Database update error while saving EventRequest: {@EventRequest}", eventRequest);
                 return StatusCode(500, new { error = "Database update error", details = dbEx.InnerException?.Message ?? dbEx.Message });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Internal server error while saving EventRequest: {@EventRequest}", eventRequest);
                 return StatusCode(500, new { error = "Internal server error", details = ex.Message });
             }
         }
@@ -97,6 +105,7 @@ namespace EventifyBackend.Controllers
             }
             catch (DbUpdateException ex)
             {
+                _logger.LogError(ex, "Database update error while accepting EventRequest {Id}", id);
                 return StatusCode(500, new { error = "Database update error", details = ex.InnerException?.Message ?? ex.Message });
             }
         }
@@ -122,6 +131,7 @@ namespace EventifyBackend.Controllers
             }
             catch (DbUpdateException ex)
             {
+                _logger.LogError(ex, "Database update error while denying EventRequest {Id}", id);
                 return StatusCode(500, new { error = "Database update error", details = ex.InnerException?.Message ?? ex.Message });
             }
         }
@@ -133,7 +143,4 @@ namespace EventifyBackend.Controllers
             return userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId) ? userId : null;
         }
     }
-
-    // Remove any accidental local definition of EventRequest
-    // The correct definition should be in Models/EventRequest.cs
 }
