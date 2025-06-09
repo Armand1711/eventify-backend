@@ -126,3 +126,4 @@ app.MapControllers();
 app.MapGet("/", () => "Eventify Backend is running!");
 
 app.Run();
+// end
