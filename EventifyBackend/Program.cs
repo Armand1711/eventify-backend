@@ -80,6 +80,32 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Global exception handler middleware to add CORS headers on errors
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+
+        // Add CORS headers explicitly on error
+        context.Response.Headers["Access-Control-Allow-Origin"] = "https://splendid-heliotrope-468d3a.netlify.app";
+        context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+
+        var errorResponse = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            error = ex.Message,
+            stackTrace = ex.StackTrace
+        });
+
+        await context.Response.WriteAsync(errorResponse);
+    }
+});
+
 // Use CORS BEFORE authentication and authorization
 app.UseCors("AllowFrontend");
 
