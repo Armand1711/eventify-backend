@@ -51,7 +51,7 @@ namespace EventifyBackend.Controllers
                 .FirstOrDefaultAsync(t => t.Id == id);
 
             if (task == null)
-                return NotFound();
+                return NotFound(new { message = $"Task with ID {id} not found." });
 
             return Ok(new
             {
@@ -118,11 +118,11 @@ namespace EventifyBackend.Controllers
         {
             var task = await _context.EventTasks.FindAsync(id);
             if (task == null)
-                return NotFound();
+                return NotFound(new { message = $"Task with ID {id} not found." });
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.AssignedToEmail);
             if (user == null)
-                return BadRequest(new { message = "Assigned user email not found." });
+                return BadRequest(new { message = $"Assigned user with email '{request.AssignedToEmail}' not found." });
 
             task.Title = request.Title;
             task.Priority = request.Priority;
@@ -134,7 +134,37 @@ namespace EventifyBackend.Controllers
             task.UpdatedAt = DateTime.UtcNow;
             task.UserId = user.Id;
 
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while updating the task.", details = ex.Message });
+            }
+
+            return NoContent();
+        }
+
+        // PATCH: api/eventtasks/5/complete
+        [HttpPatch("{id}/complete")]
+        public async Task<IActionResult> MarkTaskComplete(int id)
+        {
+            var task = await _context.EventTasks.FindAsync(id);
+            if (task == null)
+                return NotFound(new { message = $"Task with ID {id} not found." });
+
+            task.Completed = true;
+            task.UpdatedAt = DateTime.UtcNow;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while completing the task.", details = ex.Message });
+            }
 
             return NoContent();
         }
@@ -145,10 +175,18 @@ namespace EventifyBackend.Controllers
         {
             var task = await _context.EventTasks.FindAsync(id);
             if (task == null)
-                return NotFound();
+                return NotFound(new { message = $"Task with ID {id} not found." });
 
             _context.EventTasks.Remove(task);
-            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while deleting the task.", details = ex.Message });
+            }
 
             return NoContent();
         }

@@ -29,18 +29,25 @@ namespace EventifyBackend.Models
 
         // Optional: Navigation property to User
         [ForeignKey("UserId")]
-        public User? User { get; set; }
+        public virtual User? User { get; set; }
 
         [Column("createdAt")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; }
 
         [Column("updatedAt")]
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; }
 
         [Column("archived")]
         public bool Archived { get; set; } = false;
 
         // Navigation property for related EventTasks
-        public ICollection<EventTask> Tasks { get; set; } = new List<EventTask>();
+        public virtual ICollection<EventTask> Tasks { get; set; }
+
+        public Event()
+        {
+            CreatedAt = DateTime.UtcNow;
+            UpdatedAt = DateTime.UtcNow;
+            Tasks = new List<EventTask>();
+        }
     }
 }
