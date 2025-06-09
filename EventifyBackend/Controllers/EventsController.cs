@@ -18,6 +18,21 @@ namespace EventifyBackend.Controllers
             _context = context;
         }
 
+        // GET api/events
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Event>>> GetUserEvents()
+        {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized();
+
+            var events = await _context.Events
+                .Where(e => e.UserId == userId && !e.Archived)
+                .ToListAsync();
+
+            return Ok(events);
+        }
+
         // GET api/events/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<Event>> GetEvent(int id)
@@ -25,7 +40,7 @@ namespace EventifyBackend.Controllers
             var evt = await _context.Events.FindAsync(id);
             if (evt == null) return NotFound();
 
-            // Optionally, check if current user owns the event
+            // Check if current user owns the event
             var userId = GetUserIdFromToken();
             if (evt.UserId != userId) return Forbid();
 
