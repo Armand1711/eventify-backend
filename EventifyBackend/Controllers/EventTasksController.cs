@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Models;
 using System.Threading.Tasks;
 using System.Linq;
+using System;
 
 namespace EventifyBackend.Controllers
 {
@@ -86,7 +87,6 @@ namespace EventifyBackend.Controllers
             await _context.SaveChangesAsync();
             await CheckAndAutoArchiveEvent(parsedEventId);
 
-            // Return the updated task
             return Ok(existingTask);
         }
 
@@ -137,7 +137,6 @@ namespace EventifyBackend.Controllers
                 .Where(t => t.EventId == parsedEventId && !t.Archived)
                 .ToListAsync();
 
-            // Assuming budget is stored as a string like "1200" or "R1200"
             decimal totalBudget = tasks
                 .Select(t => decimal.TryParse(
                     t.Budget.Replace("R", "").Replace(" ", "").Replace(",", "").Trim(), out var b) ? b : 0)
@@ -168,7 +167,17 @@ namespace EventifyBackend.Controllers
             });
         }
 
-        // Auto-archive event if all tasks are completed
+        // NEW endpoint to get all tasks that are NOT completed (across all events)
+        [HttpGet("~/api/eventtasks/notcompleted")]
+        public async Task<IActionResult> GetAllNotCompletedTasks()
+        {
+            var tasks = await _context.EventTasks
+                .Where(t => !t.Completed && !t.Archived)
+                .ToListAsync();
+
+            return Ok(tasks);
+        }
+
         private async Task CheckAndAutoArchiveEvent(int eventId)
         {
             var tasks = await _context.EventTasks
