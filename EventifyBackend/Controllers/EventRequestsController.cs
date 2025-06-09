@@ -1,10 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using EventifyBackend.Models;
+using EventifyBackend.Models; // Ensure this includes the correct model
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System;
+using System.Security.Claims;
 
 namespace EventifyBackend.Controllers
 {
@@ -22,7 +23,7 @@ namespace EventifyBackend.Controllers
         // POST: api/eventrequests
         [HttpPost]
         // No [Authorize] here so users can create event requests without logging in
-        public async Task<IActionResult> PostEventRequest([FromBody] EventRequest eventRequest)
+        public async Task<IActionResult> PostEventRequest([FromBody] EventifyBackend.Models.EventRequest eventRequest)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -35,69 +36,104 @@ namespace EventifyBackend.Controllers
             if (string.IsNullOrWhiteSpace(eventRequest.Status))
                 eventRequest.Status = "Pending";
 
+            _context.EventRequests.Add(eventRequest);
             try
             {
-                _context.EventRequests.Add(eventRequest);
                 await _context.SaveChangesAsync();
-                return Ok(eventRequest);
+                return CreatedAtAction(nameof(GetEventRequest), new { id = eventRequest.Id }, eventRequest);
             }
             catch (DbUpdateException dbEx)
             {
-                return StatusCode(500, $"Database update error: {dbEx.InnerException?.Message ?? dbEx.Message}");
+                return StatusCode(500, new { error = "Database update error", details = dbEx.InnerException?.Message ?? dbEx.Message });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { error = "Internal server error", details = ex.Message });
             }
         }
 
         // GET: api/eventrequests
         [HttpGet]
-        [Authorize]
-        public async Task<ActionResult<IEnumerable<EventRequest>>> GetEventRequests()
+        [Authorize(Roles = "Admin")] // Restrict to admins only
+        public async Task<ActionResult<IEnumerable<EventifyBackend.Models.EventRequest>>> GetEventRequests()
         {
-            return await _context.EventRequests.ToListAsync();
+            var eventRequests = await _context.EventRequests.ToListAsync();
+            return Ok(eventRequests);
         }
 
         // GET: api/eventrequests/5
         [HttpGet("{id}")]
-        [Authorize]
-        public async Task<ActionResult<EventRequest>> GetEventRequest(int id)
+        [Authorize(Roles = "Admin")] // Restrict to admins only
+        public async Task<ActionResult<EventifyBackend.Models.EventRequest>> GetEventRequest(int id)
         {
-            var eventRequest = await _context.EventRequests.FindAsync(id);
+            var eventRequest = await _context.EventRequests.FirstOrDefaultAsync(er => er.Id == id);
             if (eventRequest == null)
-                return NotFound();
+                return NotFound(new { error = "Event request not found" });
 
-            return eventRequest;
+            return Ok(eventRequest);
         }
 
         // PUT: api/eventrequests/{id}/accept
         [HttpPut("{id}/accept")]
-        [Authorize]
+        [Authorize(Roles = "Admin")] // Restrict to admins only
         public async Task<IActionResult> AcceptEventRequest(int id)
         {
-            var request = await _context.EventRequests.FindAsync(id);
-            if (request == null) return NotFound();
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized(new { error = "User not authenticated" });
+
+            var request = await _context.EventRequests.FirstOrDefaultAsync(er => er.Id == id);
+            if (request == null)
+                return NotFound(new { error = "Event request not found" });
 
             request.Status = "Accepted";
+            request.UserId = userId; // Assign the processing admin's userId
             request.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
-            return Ok(request);
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(request);
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, new { error = "Database update error", details = ex.InnerException?.Message ?? ex.Message });
+            }
         }
 
         // DELETE: api/eventrequests/{id}/deny
         [HttpDelete("{id}/deny")]
-        [Authorize]
+        [Authorize(Roles = "Admin")] // Restrict to admins only
         public async Task<IActionResult> DenyEventRequest(int id)
         {
-            var request = await _context.EventRequests.FindAsync(id);
-            if (request == null) return NotFound();
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized(new { error = "User not authenticated" });
+
+            var request = await _context.EventRequests.FirstOrDefaultAsync(er => er.Id == id);
+            if (request == null)
+                return NotFound(new { error = "Event request not found" });
 
             _context.EventRequests.Remove(request);
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, new { error = "Database update error", details = ex.InnerException?.Message ?? ex.Message });
+            }
+        }
 
-            return NoContent();
+        // Helper to extract UserId from JWT token claims
+        private int? GetUserIdFromToken()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            return userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId) ? userId : null;
         }
     }
+
+    // Remove any accidental local definition of EventRequest
+    // The correct definition should be in Models/EventRequest.cs
 }

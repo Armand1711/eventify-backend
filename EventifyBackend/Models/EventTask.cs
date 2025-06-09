@@ -1,45 +1,54 @@
-using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json.Serialization;
 
 namespace EventifyBackend.Models
 {
     public class EventTasks
     {
         [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
         [Required]
+        [Column("title")]
         public string Title { get; set; } = string.Empty;
 
-        public string Priority { get; set; } = "Low";
+        [Column("priority")]
+        public string? Priority { get; set; }
 
-        public string Budget { get; set; } = string.Empty;
+        [Column("budget")]
+        public string? Budget { get; set; }
 
-        public bool Completed { get; set; }
+        [Column("completed")]
+        public bool Completed { get; set; } = false;
 
+        [Column("description")]
         public string? Description { get; set; }
 
+        [Column("dueDate")]
         public DateTime? DueDate { get; set; }
 
         [Required]
+        [Column("eventId")]
         public int EventId { get; set; }
 
-        [JsonIgnore] // Prevent cycles during JSON serialization
         [ForeignKey("EventId")]
         public Event? Event { get; set; }
 
         [Required]
+        [Column("userId")]
         public int UserId { get; set; }
 
         [ForeignKey("UserId")]
         public User? AssignedUser { get; set; }
 
+        [Column("createdAt")]
         public DateTime CreatedAt { get; set; }
 
+        [Column("updatedAt")]
         public DateTime UpdatedAt { get; set; }
 
+        [Column("archived")]
         public bool Archived { get; set; } = false;
     }
 }

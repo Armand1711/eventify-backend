@@ -19,49 +19,81 @@ namespace EventifyBackend.Models
 
             modelBuilder.HasDefaultSchema("public");
 
+            // User configuration
             modelBuilder.Entity<User>(entity =>
             {
                 entity.ToTable("Users");
                 entity.HasKey(u => u.Id);
             });
 
+            // EventRequest configuration
             modelBuilder.Entity<EventRequest>(entity =>
             {
                 entity.ToTable("EventRequests");
                 entity.HasKey(er => er.Id);
+                entity.Property(er => er.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(er => er.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(er => er.UserId).HasColumnName("userId"); // Explicitly map to database column
             });
 
+            // Event configuration
             modelBuilder.Entity<Event>(entity =>
             {
                 entity.ToTable("Events");
                 entity.HasKey(e => e.Id);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Restrict);
                 entity.HasMany(e => e.Tasks)
                       .WithOne(t => t.Event)
                       .HasForeignKey(t => t.EventId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // EventTasks configuration
             modelBuilder.Entity<EventTasks>(entity =>
             {
                 entity.ToTable("EventTasks");
                 entity.HasKey(et => et.Id);
-
+                entity.Property(et => et.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(et => et.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.HasOne(et => et.Event)
+                      .WithMany(e => e.Tasks)
+                      .HasForeignKey(et => et.EventId)
+                      .OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne(et => et.AssignedUser)
                       .WithMany()
                       .HasForeignKey(et => et.UserId)
                       .OnDelete(DeleteBehavior.Restrict);
+                entity.Property(et => et.Archived).HasDefaultValue(false);
             });
 
+            // Budget configuration (minimal, assuming a model exists)
             modelBuilder.Entity<Budget>(entity =>
             {
                 entity.ToTable("Budgets");
                 entity.HasKey(b => b.Id);
+                // Add relationships or properties if Budget model is provided
             });
 
+            // Archive configuration
             modelBuilder.Entity<Archive>(entity =>
             {
                 entity.ToTable("Archives");
                 entity.HasKey(a => a.Id);
+                entity.Property(a => a.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(a => a.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.HasOne(a => a.Event)
+                      .WithMany()
+                      .HasForeignKey(a => a.EventId)
+                      .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(a => a.User)
+                      .WithMany()
+                      .HasForeignKey(a => a.UserId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
         }
     }

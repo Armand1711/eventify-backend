@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using EventifyBackend.Models;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace EventifyBackend.Controllers
 {
@@ -21,9 +22,17 @@ namespace EventifyBackend.Controllers
         [HttpPost("events/{eventId}/archive")]
         public async Task<IActionResult> ArchiveEvent(int eventId)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            var evt = await _context.Events.FirstOrDefaultAsync(e => e.Id == eventId && e.UserId == userId);
-            if (evt == null) return NotFound(new { error = "Event not found" });
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null || !int.TryParse(userIdClaim, out int userId))
+                return Unauthorized(new { error = "User not authenticated" });
+
+            var evt = await _context.Events
+                .FirstOrDefaultAsync(e => e.Id == eventId && e.UserId == userId);
+            if (evt == null)
+                return NotFound(new { error = "Event not found or unauthorized" });
+
+            evt.Archived = true; // Mark as archived instead of deleting
+            evt.UpdatedAt = DateTime.UtcNow;
 
             var archive = new Archive
             {
@@ -37,16 +46,24 @@ namespace EventifyBackend.Controllers
             };
 
             _context.Archives.Add(archive);
-            _context.Events.Remove(evt); 
-            await _context.SaveChangesAsync();
-
-            return StatusCode(201, archive);
+            try
+            {
+                await _context.SaveChangesAsync();
+                return CreatedAtAction(nameof(GetArchive), new { archiveId = archive.Id }, archive);
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, new { error = "Database update error", details = ex.InnerException?.Message ?? ex.Message });
+            }
         }
 
         [HttpGet("archives")]
         public async Task<IActionResult> GetArchives()
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null || !int.TryParse(userIdClaim, out int userId))
+                return Unauthorized(new { error = "User not authenticated" });
+
             var archives = await _context.Archives
                 .Where(a => a.UserId == userId)
                 .ToListAsync();
@@ -57,11 +74,15 @@ namespace EventifyBackend.Controllers
         [HttpGet("archives/{archiveId}")]
         public async Task<IActionResult> GetArchive(int archiveId)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null || !int.TryParse(userIdClaim, out int userId))
+                return Unauthorized(new { error = "User not authenticated" });
+
             var archive = await _context.Archives
                 .FirstOrDefaultAsync(a => a.Id == archiveId && a.UserId == userId);
 
-            if (archive == null) return NotFound(new { error = "Archive not found" });
+            if (archive == null)
+                return NotFound(new { error = "Archive not found or unauthorized" });
 
             return Ok(archive);
         }
@@ -69,15 +90,26 @@ namespace EventifyBackend.Controllers
         [HttpDelete("archives/{archiveId}")]
         public async Task<IActionResult> DeleteArchive(int archiveId)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null || !int.TryParse(userIdClaim, out int userId))
+                return Unauthorized(new { error = "User not authenticated" });
+
             var archive = await _context.Archives
                 .FirstOrDefaultAsync(a => a.Id == archiveId && a.UserId == userId);
 
-            if (archive == null) return NotFound(new { error = "Archive not found" });
+            if (archive == null)
+                return NotFound(new { error = "Archive not found or unauthorized" });
 
             _context.Archives.Remove(archive);
-            await _context.SaveChangesAsync();
-            return NoContent();
+            try
+            {
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, new { error = "Database update error", details = ex.InnerException?.Message ?? ex.Message });
+            }
         }
     }
 }
