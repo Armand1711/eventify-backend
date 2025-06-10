@@ -20,9 +20,8 @@ namespace EventifyBackend.Models
         [Column("description")]
         public string? Description { get; set; }
 
-        [Required]
-        [Column("date")]
-        public DateTime Date { get; set; }
+        [Column("date")] // Remove [Required] to allow null
+        public DateTime? Date { get; set; } // Changed to nullable
 
         [Required]
         [Column("userId")]
