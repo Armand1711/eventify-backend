@@ -60,7 +60,6 @@ namespace EventifyBackend.Controllers
             }
             catch (Exception ex)
             {
-                // Return error details for debugging (remove stack in production)
                 return StatusCode(500, new { message = ex.Message, stack = ex.StackTrace });
             }
         }
@@ -83,8 +82,9 @@ namespace EventifyBackend.Controllers
                 var user = new User
                 {
                     Email = request.Email,
-                    PasswordHash = passwordHash
-                    // Add other fields as needed
+                    PasswordHash = passwordHash,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
                 };
 
                 _context.Users.Add(user);
@@ -98,7 +98,6 @@ namespace EventifyBackend.Controllers
             }
         }
 
-        // ✅ New GET endpoint to fetch all users
         [HttpGet]
         public async Task<IActionResult> GetAllUsers()
         {
@@ -109,7 +108,6 @@ namespace EventifyBackend.Controllers
                     {
                         u.Id,
                         u.Email
-                        // Add more fields here if needed (e.g., Name, Role, etc.)
                     })
                     .ToListAsync();
 

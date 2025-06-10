@@ -2,13 +2,16 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Models;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Security.Claims;
 
 namespace EventifyBackend.Controllers
 {
     [Route("api/events")]
     [ApiController]
-    [Authorize] // Require JWT bearer token for all actions by default
+    [Authorize]
     public class EventsController : ControllerBase
     {
         private readonly EventifyDbContext _context;
@@ -18,127 +21,150 @@ namespace EventifyBackend.Controllers
             _context = context;
         }
 
-        // GET api/events/all -- publicly accessible, returns all events
-        [HttpGet("all")]
-        [AllowAnonymous] // Override controller-level Authorize to allow public access
-        public async Task<ActionResult<IEnumerable<Event>>> GetAllEvents()
+        public class EventDto
         {
-            var events = await _context.Events.ToListAsync();
-            return Ok(events);
+            public int Id { get; set; }
+            public string Title { get; set; } = string.Empty;
+            public string? Description { get; set; }
+            public DateTime? Date { get; set; }
+            public int UserId { get; set; }
+            public DateTime CreatedAt { get; set; }
+            public DateTime UpdatedAt { get; set; }
+            public bool Archived { get; set; }
         }
 
-        // GET api/events?includeArchived=false -- authorized users only, returns user-specific events
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Event>>> GetUserEvents([FromQuery] bool includeArchived = false)
+        public async Task<ActionResult<IEnumerable<EventDto>>> GetEvents()
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
-                return Unauthorized();
+                return Unauthorized("User not authenticated");
 
-            var query = _context.Events.Where(e => e.UserId == userId);
-
-            if (!includeArchived)
-                query = query.Where(e => !e.Archived);
-
-            var events = await query.ToListAsync();
+            var events = await _context.Events
+                .Where(e => e.UserId == userId)
+                .Select(e => new EventDto
+                {
+                    Id = e.Id,
+                    Title = e.Title,
+                    Description = e.Description,
+                    Date = e.Date,
+                    UserId = e.UserId,
+                    CreatedAt = e.CreatedAt,
+                    UpdatedAt = e.UpdatedAt,
+                    Archived = e.Archived
+                })
+                .ToListAsync();
 
             return Ok(events);
         }
 
-        // GET api/events/{id} -- authorized users only, include tasks
         [HttpGet("{id}")]
-        public async Task<ActionResult<Event>> GetEvent(int id)
+        public async Task<ActionResult<EventDto>> GetEvent(int id)
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
-                return Unauthorized();
+                return Unauthorized("User not authenticated");
 
-            var evt = await _context.Events
-                .Include(e => e.Tasks)  // Load related tasks
-                .FirstOrDefaultAsync(e => e.Id == id);
-
-            if (evt == null) return NotFound();
-            if (evt.UserId != userId) return Forbid();
-
-            return Ok(evt);
-        }
-
-        // POST api/events -- authorized users only
-        [HttpPost]
-        public async Task<ActionResult<Event>> CreateEvent([FromBody] Event evt)
-        {
-            var userId = GetUserIdFromToken();
-            if (userId == null)
-                return Unauthorized();
-
-            evt.UserId = userId.Value;
-            evt.CreatedAt = DateTime.UtcNow;
-            evt.UpdatedAt = DateTime.UtcNow;
-
-            if (evt.Archived)
-            {
-                var archive = new Archive
+            var eventItem = await _context.Events
+                .Where(e => e.Id == id && e.UserId == userId)
+                .Select(e => new EventDto
                 {
-                    EventId = evt.Id,
-                    Title = evt.Title,
-                    Description = evt.Description,
-                    Date = evt.Date,
-                    UserId = evt.UserId,
-                    CreatedAt = evt.CreatedAt,
-                    UpdatedAt = evt.UpdatedAt
-                };
-                _context.Archives.Add(archive);
-            }
-            else
-            {
-                _context.Events.Add(evt);
-            }
+                    Id = e.Id,
+                    Title = e.Title,
+                    Description = e.Description,
+                    Date = e.Date,
+                    UserId = e.UserId,
+                    CreatedAt = e.CreatedAt,
+                    UpdatedAt = e.UpdatedAt,
+                    Archived = e.Archived
+                })
+                .FirstOrDefaultAsync();
 
-            await _context.SaveChangesAsync();
+            if (eventItem == null)
+                return NotFound();
 
-            return CreatedAtAction(nameof(GetEvent), new { id = evt.Id }, evt);
+            return Ok(eventItem);
         }
 
-        // PUT api/events/{id}/archive -- authorized users only
-        [HttpPut("{id}/archive")]
-        public async Task<IActionResult> ArchiveEvent(int id)
+        [HttpPost]
+        public async Task<ActionResult<EventDto>> CreateEvent([FromBody] EventDto request)
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
-                return Unauthorized();
+                return Unauthorized("User not authenticated");
 
-            var evt = await _context.Events.FindAsync(id);
-            if (evt == null) return NotFound();
-            if (evt.UserId != userId) return Forbid();
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            evt.Archived = true;
-            evt.UpdatedAt = DateTime.UtcNow;
-
-            var archive = new Archive
+            var newEvent = new Event
             {
-                EventId = evt.Id,
-                Title = evt.Title,
-                Description = evt.Description,
-                Date = evt.Date,
-                UserId = evt.UserId,
+                Title = request.Title,
+                Description = request.Description,
+                Date = request.Date,
+                UserId = userId.Value,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                Archived = false
             };
-            _context.Archives.Add(archive);
 
+            _context.Events.Add(newEvent);
             await _context.SaveChangesAsync();
 
+            request.Id = newEvent.Id;
+            request.CreatedAt = newEvent.CreatedAt;
+            request.UpdatedAt = newEvent.UpdatedAt;
+            request.Archived = newEvent.Archived;
+            return CreatedAtAction(nameof(GetEvent), new { id = newEvent.Id }, request);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateEvent(int id, [FromBody] EventDto request)
+        {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
+
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var eventItem = await _context.Events
+                .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+
+            if (eventItem == null)
+                return NotFound();
+
+            eventItem.Title = request.Title;
+            eventItem.Description = request.Description;
+            eventItem.Date = request.Date;
+            eventItem.UpdatedAt = DateTime.UtcNow;
+            eventItem.Archived = request.Archived;
+
+            await _context.SaveChangesAsync();
             return NoContent();
         }
 
-        // Helper to extract UserId from JWT token claims
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteEvent(int id)
+        {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
+
+            var eventItem = await _context.Events
+                .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+
+            if (eventItem == null)
+                return NotFound();
+
+            _context.Events.Remove(eventItem);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
         private int? GetUserIdFromToken()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-            if (userIdClaim == null) return null;
-            if (int.TryParse(userIdClaim.Value, out int userId))
-                return userId;
-            return null;
+            return userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId) ? userId : null;
         }
     }
 }

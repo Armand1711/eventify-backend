@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
+
 builder.Services.AddDbContext<EventifyDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -60,7 +61,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// CORS setup: allow Netlify and local dev
+// CORS setup: allow frontend origins and credentials
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -73,23 +74,48 @@ builder.Services.AddCors(options =>
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials();
+            .AllowCredentials(); // Allows cookies and auth headers
     });
 });
 
 var app = builder.Build();
 
-// CORS must come BEFORE authentication, authorization, and MapControllers
+// Global exception handler middleware to add CORS headers on errors
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+
+        // Add CORS headers explicitly on error
+        context.Response.Headers["Access-Control-Allow-Origin"] = "https://splendid-heliotrope-468d3a.netlify.app";
+        context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+
+        var errorResponse = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            error = ex.Message,
+            stackTrace = ex.StackTrace
+        });
+
+        await context.Response.WriteAsync(errorResponse);
+    }
+});
+
+// Use CORS BEFORE authentication and authorization
 app.UseCors("AllowFrontend");
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Eventify Backend API v1");
-    c.RoutePrefix = "swagger"; // Fixed syntax error
+    c.RoutePrefix = "swagger";
 });
 
-// Enable HTTPS redirection for production
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
@@ -100,3 +126,4 @@ app.MapControllers();
 app.MapGet("/", () => "Eventify Backend is running!");
 
 app.Run();
+// end

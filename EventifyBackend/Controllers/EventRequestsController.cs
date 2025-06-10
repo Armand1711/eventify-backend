@@ -5,99 +5,154 @@ using EventifyBackend.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System;
+using System.Security.Claims;
+using Microsoft.Extensions.Logging;
 
 namespace EventifyBackend.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/eventrequests")]
     [ApiController]
     public class EventRequestsController : ControllerBase
     {
         private readonly EventifyDbContext _context;
+        private readonly ILogger<EventRequestsController> _logger;
 
-        public EventRequestsController(EventifyDbContext context)
+        public EventRequestsController(EventifyDbContext context, ILogger<EventRequestsController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
-        // POST: api/eventrequests
         [HttpPost]
-        // No [Authorize] here so users can create event requests without logging in
-        public async Task<IActionResult> PostEventRequest([FromBody] EventRequest eventRequest)
+        public async Task<IActionResult> PostEventRequest([FromBody] EventRequest request)
         {
             if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Model validation failed: {@ModelState}", ModelState);
                 return BadRequest(ModelState);
+            }
 
-            // Set server-side values
-            eventRequest.Id = 0; // Ensure treated as new entity
-            eventRequest.CreatedAt = DateTime.UtcNow;
-            eventRequest.UpdatedAt = DateTime.UtcNow;
+            request.Id = 0;
+            request.CreatedAt = DateTime.UtcNow;
+            request.UpdatedAt = DateTime.UtcNow;
 
-            if (string.IsNullOrWhiteSpace(eventRequest.Status))
-                eventRequest.Status = "Pending";
+            if (string.IsNullOrWhiteSpace(request.Status))
+                request.Status = "Pending";
 
+            _context.EventRequests.Add(request);
             try
             {
-                _context.EventRequests.Add(eventRequest);
                 await _context.SaveChangesAsync();
-                return Ok(eventRequest);
+                return CreatedAtAction(nameof(GetEventRequest), new { id = request.Id }, request);
             }
             catch (DbUpdateException dbEx)
             {
-                return StatusCode(500, $"Database update error: {dbEx.InnerException?.Message ?? dbEx.Message}");
+                _logger.LogError(dbEx, "Database update error while saving EventRequest: {@EventRequest}", request);
+                return StatusCode(500, new { error = "Database update error", details = dbEx.InnerException?.Message ?? dbEx.Message });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                _logger.LogError(ex, "Internal server error while saving EventRequest: {@EventRequest}", request);
+                return StatusCode(500, new { error = "Internal server error", details = ex.Message });
             }
         }
 
-        // GET: api/eventrequests
         [HttpGet]
         [Authorize]
         public async Task<ActionResult<IEnumerable<EventRequest>>> GetEventRequests()
         {
-            return await _context.EventRequests.ToListAsync();
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized(new { error = "User not authenticated" });
+
+            var eventRequests = await _context.EventRequests.ToListAsync();
+            return Ok(eventRequests);
         }
 
-        // GET: api/eventrequests/5
         [HttpGet("{id}")]
         [Authorize]
         public async Task<ActionResult<EventRequest>> GetEventRequest(int id)
         {
-            var eventRequest = await _context.EventRequests.FindAsync(id);
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized(new { error = "User not authenticated" });
+
+            var eventRequest = await _context.EventRequests.FirstOrDefaultAsync(er => er.Id == id);
             if (eventRequest == null)
                 return NotFound();
 
-            return eventRequest;
+            return Ok(eventRequest);
         }
 
-        // PUT: api/eventrequests/{id}/accept
         [HttpPut("{id}/accept")]
         [Authorize]
         public async Task<IActionResult> AcceptEventRequest(int id)
         {
-            var request = await _context.EventRequests.FindAsync(id);
-            if (request == null) return NotFound();
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
+
+            var request = await _context.EventRequests.FirstOrDefaultAsync(er => er.Id == id);
+            if (request == null)
+                return NotFound();
 
             request.Status = "Accepted";
+            request.UserId = userId;
             request.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
-            return Ok(request);
+            var newEvent = new Event
+            {
+                Title = request.Title,
+                Description = request.Description,
+                Date = request.Date,
+                UserId = userId.Value,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Archived = false
+            };
+            _context.Events.Add(newEvent);
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(request);
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database update error while accepting EventRequest {Id}", id);
+                return StatusCode(500, new { error = "Database update error", details = ex.InnerException?.Message ?? ex.Message });
+            }
         }
 
-        // DELETE: api/eventrequests/{id}/deny
         [HttpDelete("{id}/deny")]
         [Authorize]
         public async Task<IActionResult> DenyEventRequest(int id)
         {
-            var request = await _context.EventRequests.FindAsync(id);
-            if (request == null) return NotFound();
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
+
+            var request = await _context.EventRequests.FirstOrDefaultAsync(er => er.Id == id);
+            if (request == null)
+                return NotFound();
 
             _context.EventRequests.Remove(request);
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database update error while denying EventRequest {Id}", id);
+                return StatusCode(500, new { error = "Database update error", details = ex.InnerException?.Message ?? ex.Message });
+            }
+        }
 
-            return NoContent();
+        private int? GetUserIdFromToken()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            return userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId) ? userId : null;
         }
     }
 }

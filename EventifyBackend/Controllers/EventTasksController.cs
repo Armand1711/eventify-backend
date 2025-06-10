@@ -1,11 +1,18 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Models;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System;
+using System.Security.Claims;
 
 namespace EventifyBackend.Controllers
 {
     [Route("api/eventtasks")]
     [ApiController]
+    [Authorize]
     public class EventTasksController : ControllerBase
     {
         private readonly EventifyDbContext _context;
@@ -15,109 +22,115 @@ namespace EventifyBackend.Controllers
             _context = context;
         }
 
-        // GET: api/eventtasks
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<object>>> GetEventTasks()
+        public class EventTaskDto
         {
+            public int Id { get; set; }
+            public string Title { get; set; } = string.Empty;
+            public string Priority { get; set; } = "Low";
+            public bool Completed { get; set; }
+            public string? Description { get; set; }
+            public DateTime? DueDate { get; set; }
+            public int EventId { get; set; }
+            public DateTime CreatedAt { get; set; }
+            public DateTime UpdatedAt { get; set; }
+            public bool Archived { get; set; }
+            public string? AssignedToEmail { get; set; }
+        }
+
+        public class CreateOrUpdateTaskDto
+        {
+            public string Title { get; set; } = string.Empty;
+            public string Priority { get; set; } = "Low";
+            public bool Completed { get; set; } = false;
+            public string? Description { get; set; }
+            public DateTime? DueDate { get; set; }
+            public int EventId { get; set; }
+            public string AssignedToEmail { get; set; } = string.Empty;
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<EventTaskDto>>> GetEventTasks()
+        {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
+
             var tasks = await _context.EventTasks
                 .Include(t => t.AssignedUser)
+                .Where(t => t.UserId == userId || _context.Events.Any(e => e.Id == t.EventId && e.UserId == userId))
                 .ToListAsync();
 
-            var response = tasks.Select(t => new
-            {
-                t.Id,
-                t.Title,
-                t.Priority,
-                t.Budget,
-                t.Completed,
-                t.Description,
-                t.DueDate,
-                t.EventId,
-                t.CreatedAt,
-                t.UpdatedAt,
-                t.Archived,
-                AssignedToEmail = t.AssignedUser?.Email
-            });
-
+            var response = tasks.Select(t => MapToDto(t));
             return Ok(response);
         }
 
-        // GET: api/eventtasks/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<object>> GetEventTask(int id)
+        public async Task<ActionResult<EventTaskDto>> GetEventTask(int id)
         {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
+
             var task = await _context.EventTasks
                 .Include(t => t.AssignedUser)
-                .FirstOrDefaultAsync(t => t.Id == id);
+                .FirstOrDefaultAsync(t => t.Id == id && (t.UserId == userId || _context.Events.Any(e => e.Id == t.EventId && e.UserId == userId)));
 
             if (task == null)
                 return NotFound();
 
-            return Ok(new
-            {
-                task.Id,
-                task.Title,
-                task.Priority,
-                task.Budget,
-                task.Completed,
-                task.Description,
-                task.DueDate,
-                task.EventId,
-                task.CreatedAt,
-                task.UpdatedAt,
-                task.Archived,
-                AssignedToEmail = task.AssignedUser?.Email
-            });
+            return Ok(MapToDto(task));
         }
 
-        // POST: api/eventtasks
         [HttpPost]
-        public async Task<ActionResult<EventTask>> CreateEventTask([FromBody] CreateOrUpdateTaskDto request)
+        public async Task<ActionResult<EventTaskDto>> CreateEventTask([FromBody] CreateOrUpdateTaskDto request)
         {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
+
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.AssignedToEmail);
             if (user == null)
                 return BadRequest(new { message = "Assigned user email not found." });
 
-            var newTask = new EventTask
+            var eventExists = await _context.Events.AnyAsync(e => e.Id == request.EventId && e.UserId == userId);
+            if (!eventExists)
+                return NotFound("Event not found or unauthorized");
+
+            var newTask = new EventTasks
             {
                 Title = request.Title,
                 Priority = request.Priority,
-                Budget = request.Budget,
                 Completed = request.Completed,
                 Description = request.Description,
                 DueDate = request.DueDate,
                 EventId = request.EventId,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                UserId = user.Id
+                UserId = user.Id,
+                Archived = false
             };
 
             _context.EventTasks.Add(newTask);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetEventTask), new { id = newTask.Id }, new
-            {
-                newTask.Id,
-                newTask.Title,
-                newTask.Priority,
-                newTask.Budget,
-                newTask.Completed,
-                newTask.Description,
-                newTask.DueDate,
-                newTask.EventId,
-                newTask.CreatedAt,
-                newTask.UpdatedAt,
-                newTask.Archived,
-                AssignedToEmail = user.Email
-            });
+            return CreatedAtAction(nameof(GetEventTask), new { id = newTask.Id }, MapToDto(newTask));
         }
 
-        // PUT: api/eventtasks/5
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateEventTask(int id, [FromBody] CreateOrUpdateTaskDto request)
         {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
+
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             var task = await _context.EventTasks.FindAsync(id);
-            if (task == null)
+            if (task == null || !await _context.Events.AnyAsync(e => e.Id == task.EventId && e.UserId == userId))
                 return NotFound();
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.AssignedToEmail);
@@ -126,25 +139,26 @@ namespace EventifyBackend.Controllers
 
             task.Title = request.Title;
             task.Priority = request.Priority;
-            task.Budget = request.Budget;
             task.Completed = request.Completed;
             task.Description = request.Description;
             task.DueDate = request.DueDate;
             task.EventId = request.EventId;
-            task.UpdatedAt = DateTime.UtcNow;
             task.UserId = user.Id;
+            task.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-
             return NoContent();
         }
 
-        // DELETE: api/eventtasks/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteEventTask(int id)
         {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
+
             var task = await _context.EventTasks.FindAsync(id);
-            if (task == null)
+            if (task == null || !await _context.Events.AnyAsync(e => e.Id == task.EventId && e.UserId == userId))
                 return NotFound();
 
             _context.EventTasks.Remove(task);
@@ -152,17 +166,29 @@ namespace EventifyBackend.Controllers
 
             return NoContent();
         }
-    }
 
-    public class CreateOrUpdateTaskDto
-    {
-        public string Title { get; set; } = string.Empty;
-        public string Priority { get; set; } = "Low";
-        public string Budget { get; set; } = "";
-        public bool Completed { get; set; } = false;
-        public string? Description { get; set; }
-        public DateTime? DueDate { get; set; }
-        public int EventId { get; set; }
-        public string AssignedToEmail { get; set; } = "";
+        private static EventTaskDto MapToDto(EventTasks t)
+        {
+            return new EventTaskDto
+            {
+                Id = t.Id,
+                Title = t.Title,
+                Priority = t.Priority,
+                Completed = t.Completed,
+                Description = t.Description,
+                DueDate = t.DueDate,
+                EventId = t.EventId,
+                CreatedAt = t.CreatedAt,
+                UpdatedAt = t.UpdatedAt,
+                Archived = t.Archived,
+                AssignedToEmail = t.AssignedUser?.Email
+            };
+        }
+
+        private int? GetUserIdFromToken()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            return userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId) ? userId : null;
+        }
     }
 }
