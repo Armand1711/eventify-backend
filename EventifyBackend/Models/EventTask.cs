@@ -17,7 +17,7 @@ public class EventTasks
     public string? Priority { get; set; }
 
     [Column("budget")]
-    public decimal? Budget { get; set; }
+    public string? Budget { get; set; } // Changed from decimal? to string?
 
     [Column("completed")]
     public bool Completed { get; set; } = false;
