@@ -13,7 +13,7 @@ namespace EventifyBackend.Controllers
 {
     [Route("api/eventtasks")]
     [ApiController]
-    [Authorize]
+    [Authorize] // Still requires authentication but not ownership
     public class EventTasksController : ControllerBase
     {
         private readonly EventifyDbContext _context;
@@ -78,7 +78,7 @@ namespace EventifyBackend.Controllers
 
             var tasks = await _context.EventTasks
                 .Include(t => t.AssignedUser)
-                .Where(t => t.EventId == eventId) // Removed the UserId-based authorization
+                .Where(t => t.EventId == eventId) // Accessible to any authenticated user
                 .ToListAsync();
 
             if (!tasks.Any())
@@ -119,7 +119,7 @@ namespace EventifyBackend.Controllers
             if (user == null)
                 return BadRequest(new { error = "Assigned user email not found" });
 
-            var eventExists = await _context.Events.AnyAsync(e => e.Id == request.EventId); // Already updated to allow any event
+            var eventExists = await _context.Events.AnyAsync(e => e.Id == request.EventId); // Allows any event
             if (!eventExists)
                 return NotFound(new { error = "Event not found or unauthorized" });
 
@@ -167,8 +167,8 @@ namespace EventifyBackend.Controllers
                 return BadRequest(new { error = "Invalid model state", details = ModelState });
 
             var task = await _context.EventTasks.FindAsync(id);
-            if (task == null || !await _context.Events.AnyAsync(e => e.Id == task.EventId && e.UserId == userId))
-                return NotFound(new { error = "Task not found or unauthorized" });
+            if (task == null)
+                return NotFound(new { error = "Task not found" });
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.AssignedToEmail);
             if (user == null)
@@ -176,7 +176,7 @@ namespace EventifyBackend.Controllers
 
             task.Title = request.Title;
             task.Priority = request.Priority;
-            task.Completed = request.Completed;
+            task.Completed = request.Completed; // Allows marking as complete
             task.Description = request.Description;
             task.DueDate = request.DueDate;
             task.EventId = request.EventId;
@@ -209,8 +209,8 @@ namespace EventifyBackend.Controllers
                 return Unauthorized(new { error = "User not authenticated" });
 
             var task = await _context.EventTasks.FindAsync(id);
-            if (task == null || !await _context.Events.AnyAsync(e => e.Id == task.EventId && e.UserId == userId))
-                return NotFound(new { error = "Task not found or unauthorized" });
+            if (task == null)
+                return NotFound(new { error = "Task not found" });
 
             _context.EventTasks.Remove(task);
             try
