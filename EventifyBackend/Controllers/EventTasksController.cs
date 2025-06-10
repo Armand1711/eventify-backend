@@ -78,11 +78,11 @@ namespace EventifyBackend.Controllers
 
             var tasks = await _context.EventTasks
                 .Include(t => t.AssignedUser)
-                .Where(t => t.EventId == eventId && (t.UserId == userId || _context.Events.Any(e => e.Id == eventId && e.UserId == userId)))
+                .Where(t => t.EventId == eventId) // Removed the UserId-based authorization
                 .ToListAsync();
 
             if (!tasks.Any())
-                return NotFound(new { error = "No tasks found for the specified event or unauthorized" });
+                return NotFound(new { error = "No tasks found for the specified event" });
 
             var response = tasks.Select(t => MapToDto(t));
             return Ok(response);
@@ -119,7 +119,7 @@ namespace EventifyBackend.Controllers
             if (user == null)
                 return BadRequest(new { error = "Assigned user email not found" });
 
-            var eventExists = await _context.Events.AnyAsync(e => e.Id == request.EventId && e.UserId == userId);
+            var eventExists = await _context.Events.AnyAsync(e => e.Id == request.EventId); // Already updated to allow any event
             if (!eventExists)
                 return NotFound(new { error = "Event not found or unauthorized" });
 
