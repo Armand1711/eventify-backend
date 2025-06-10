@@ -33,7 +33,7 @@ namespace EventifyBackend.Models
                 entity.HasKey(er => er.Id);
                 entity.Property(er => er.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(er => er.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-                entity.Property(er => er.UserId).HasColumnName("userId"); // Explicitly map to database column
+                entity.Property(er => er.UserId).HasColumnName("userId");
             });
 
             // Event configuration
@@ -71,12 +71,11 @@ namespace EventifyBackend.Models
                 entity.Property(et => et.Archived).HasDefaultValue(false);
             });
 
-            // Budget configuration (minimal, assuming a model exists)
+            // Budget configuration
             modelBuilder.Entity<Budget>(entity =>
             {
                 entity.ToTable("Budgets");
                 entity.HasKey(b => b.Id);
-                // Add relationships or properties if Budget model is provided
             });
 
             // Archive configuration

@@ -16,9 +16,6 @@ namespace EventifyBackend.Models
         [Column("priority")]
         public string? Priority { get; set; }
 
-        [Column("budget")]
-        public string? Budget { get; set; }
-
         [Column("completed")]
         public bool Completed { get; set; } = false;
 

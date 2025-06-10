@@ -23,9 +23,7 @@ namespace EventifyBackend.Controllers
             _logger = logger;
         }
 
-        // POST: api/eventrequests
         [HttpPost]
-        // No [Authorize] here so users can create event requests without logging in
         public async Task<IActionResult> PostEventRequest([FromBody] EventifyBackend.Models.EventRequest eventRequest)
         {
             if (!ModelState.IsValid)
@@ -34,8 +32,7 @@ namespace EventifyBackend.Controllers
                 return BadRequest(ModelState);
             }
 
-            // Set server-side values
-            eventRequest.Id = 0; // Ensure treated as new entity
+            eventRequest.Id = 0;
             eventRequest.CreatedAt = DateTime.UtcNow;
             eventRequest.UpdatedAt = DateTime.UtcNow;
 
@@ -60,20 +57,26 @@ namespace EventifyBackend.Controllers
             }
         }
 
-        // GET: api/eventrequests
         [HttpGet]
-        [Authorize(Roles = "Admin")] // Restrict to admins only
+        [Authorize]
         public async Task<ActionResult<IEnumerable<EventifyBackend.Models.EventRequest>>> GetEventRequests()
         {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized(new { error = "User not authenticated" });
+
             var eventRequests = await _context.EventRequests.ToListAsync();
             return Ok(eventRequests);
         }
 
-        // GET: api/eventrequests/5
         [HttpGet("{id}")]
-        [Authorize(Roles = "Admin")] // Restrict to admins only
+        [Authorize]
         public async Task<ActionResult<EventifyBackend.Models.EventRequest>> GetEventRequest(int id)
         {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized(new { error = "User not authenticated" });
+
             var eventRequest = await _context.EventRequests.FirstOrDefaultAsync(er => er.Id == id);
             if (eventRequest == null)
                 return NotFound(new { error = "Event request not found" });
@@ -81,9 +84,8 @@ namespace EventifyBackend.Controllers
             return Ok(eventRequest);
         }
 
-        // PUT: api/eventrequests/{id}/accept
         [HttpPut("{id}/accept")]
-        [Authorize(Roles = "Admin")] // Restrict to admins only
+        [Authorize]
         public async Task<IActionResult> AcceptEventRequest(int id)
         {
             var userId = GetUserIdFromToken();
@@ -95,8 +97,20 @@ namespace EventifyBackend.Controllers
                 return NotFound(new { error = "Event request not found" });
 
             request.Status = "Accepted";
-            request.UserId = userId; // Assign the processing admin's userId
+            request.UserId = userId;
             request.UpdatedAt = DateTime.UtcNow;
+
+            var newEvent = new Event
+            {
+                Title = request.Title,
+                Description = request.Description,
+                Date = request.Date,
+                UserId = userId.Value,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Archived = false
+            };
+            _context.Events.Add(newEvent);
 
             try
             {
@@ -110,9 +124,8 @@ namespace EventifyBackend.Controllers
             }
         }
 
-        // DELETE: api/eventrequests/{id}/deny
         [HttpDelete("{id}/deny")]
-        [Authorize(Roles = "Admin")] // Restrict to admins only
+        [Authorize]
         public async Task<IActionResult> DenyEventRequest(int id)
         {
             var userId = GetUserIdFromToken();
@@ -136,7 +149,6 @@ namespace EventifyBackend.Controllers
             }
         }
 
-        // Helper to extract UserId from JWT token claims
         private int? GetUserIdFromToken()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
