@@ -58,6 +58,30 @@ namespace EventifyBackend.Controllers
             return Ok(events);
         }
 
+        [HttpGet("all")]
+        public async Task<ActionResult<IEnumerable<EventDto>>> GetAllEvents()
+        {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
+
+            var events = await _context.Events
+                .Select(e => new EventDto
+                {
+                    Id = e.Id,
+                    Title = e.Title,
+                    Description = e.Description,
+                    Date = e.Date,
+                    UserId = e.UserId,
+                    CreatedAt = e.CreatedAt,
+                    UpdatedAt = e.UpdatedAt,
+                    Archived = e.Archived
+                })
+                .ToListAsync();
+
+            return Ok(events);
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<EventDto>> GetEvent(int id)
         {
