@@ -1,60 +1,53 @@
-using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace EventifyBackend.Models
+namespace EventifyBackend.Models;
+
+public class EventTasks
 {
-    public class EventTask
-    {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; set; }
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public int Id { get; set; }
 
-        [Required]
-        [Column("title")]
-        public string Title { get; set; } = string.Empty;
+    [Required]
+    [Column("title")]
+    public string Title { get; set; } = string.Empty;
 
-        [Required]
-        [Column("priority")]
-        public string Priority { get; set; } = "Low";
+    [Column("priority")]
+    public string? Priority { get; set; }
 
-        [Column("budget")]
-        public string Budget { get; set; } = string.Empty;
+    [Column("budget")]
+    public decimal? Budget { get; set; }
 
-        [Column("completed")]
-        public bool Completed { get; set; } = false;
+    [Column("completed")]
+    public bool Completed { get; set; } = false;
 
-        [Column("description")]
-        public string? Description { get; set; }
+    [Column("description")]
+    public string? Description { get; set; }
 
-        [Column("dueDate")]
-        public DateTime? DueDate { get; set; }
+    [Column("dueDate")]
+    public DateTime? DueDate { get; set; }
 
-        // Foreign key to Event
-        [Required]
-        [Column("eventId")]
-        public int EventId { get; set; }
+    [Required]
+    [Column("eventId")]
+    public int EventId { get; set; }
 
-        // Navigation property for Event
-        [ForeignKey("EventId")]
-        public Event? Event { get; set; }
+    [ForeignKey("EventId")]
+    public Event? Event { get; set; }
 
-        [Column("createdAt")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [Required]
+    [Column("userId")]
+    public int UserId { get; set; }
 
-        [Column("updatedAt")]
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    [ForeignKey("UserId")]
+    public User? AssignedUser { get; set; }
 
-        [Column("archived")]
-        public bool Archived { get; set; } = false;
+    [Column("createdAt")]
+    public DateTime CreatedAt { get; set; }
 
-        // Foreign key for User assigned to task
-        [Required]
-        [Column("userId")]
-        public int UserId { get; set; }
+    [Column("updatedAt")]
+    public DateTime UpdatedAt { get; set; }
 
-        // Navigation property for assigned User
-        [ForeignKey("UserId")]
-        public User AssignedUser { get; set; } = null!;
-    }
+    [Column("archived")]
+    public bool Archived { get; set; } = false;
 }

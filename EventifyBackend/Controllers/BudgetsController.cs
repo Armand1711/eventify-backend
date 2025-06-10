@@ -1,88 +1,108 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Models;
 using System.Threading.Tasks;
+using System.Security.Claims;
 
-namespace EventifyBackend.Controllers;
-
-[Route("api/tasks/{taskId}/budgets")]
-[ApiController]
-public class BudgetsController : ControllerBase
+namespace EventifyBackend.Controllers
 {
-    private readonly EventifyDbContext _context;
-
-    public BudgetsController(EventifyDbContext context)
+    [Route("api/tasks/{taskId:int}/budgets")]
+    [ApiController]
+    [Authorize]
+    public class BudgetsController : ControllerBase
     {
-        _context = context;
-    }
+        private readonly EventifyDbContext _context;
 
-    [HttpGet]
-    public async Task<IActionResult> GetBudgets(string taskId)
-    {
-        if (!int.TryParse(taskId, out int parsedTaskId))
-            return BadRequest("Invalid task ID.");
+        public BudgetsController(EventifyDbContext context)
+        {
+            _context = context;
+        }
 
-        var budgets = await _context.Budgets
-            .Where(b => b.TaskId == parsedTaskId)
-            .ToListAsync();
-        return Ok(budgets);
-    }
+        [HttpGet]
+        public async Task<IActionResult> GetBudgets(int taskId)
+        {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
 
-    [HttpPost]
-    public async Task<IActionResult> CreateBudget(string taskId, [FromBody] Budget budget)
-    {
-        if (!int.TryParse(taskId, out int parsedTaskId))
-            return BadRequest("Invalid task ID.");
+            var budgets = await _context.Budgets
+                .Where(b => b.TaskId == taskId && b.UserId == userId)
+                .ToListAsync();
+            return Ok(budgets);
+        }
 
-        budget.TaskId = parsedTaskId;
-        _context.Budgets.Add(budget);
-        await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(CreateBudget), new { id = budget.Id }, budget);
-    }
+        [HttpPost]
+        public async Task<IActionResult> CreateBudget(int taskId, [FromBody] Budget budget)
+        {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetBudget(string taskId, string id)
-    {
-        if (!int.TryParse(taskId, out int parsedTaskId) || !int.TryParse(id, out int budgetId))
-            return BadRequest("Invalid task ID or budget ID.");
+            var task = await _context.EventTasks.FirstOrDefaultAsync(t => t.Id == taskId && t.UserId == userId);
+            if (task == null)
+                return NotFound("Task not found or unauthorized");
 
-        var budget = await _context.Budgets
-            .FirstOrDefaultAsync(b => b.TaskId == parsedTaskId && b.Id == budgetId);
-        if (budget == null)
-            return NotFound();
-        return Ok(budget);
-    }
+            budget.TaskId = taskId;
+            budget.UserId = userId.Value;
+            _context.Budgets.Add(budget);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetBudget), new { taskId, id = budget.Id }, budget);
+        }
 
-    [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateBudget(string taskId, string id, [FromBody] Budget budget)
-    {
-        if (!int.TryParse(taskId, out int parsedTaskId) || !int.TryParse(id, out int budgetId))
-            return BadRequest("Invalid task ID or budget ID.");
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetBudget(int taskId, int id)
+        {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
 
-        var existingBudget = await _context.Budgets
-            .FirstOrDefaultAsync(b => b.TaskId == parsedTaskId && b.Id == budgetId);
-        if (existingBudget == null)
-            return NotFound();
+            var budget = await _context.Budgets
+                .FirstOrDefaultAsync(b => b.TaskId == taskId && b.Id == id && b.UserId == userId);
+            if (budget == null)
+                return NotFound();
+            return Ok(budget);
+        }
 
-        existingBudget.Amount = budget.Amount;
-        existingBudget.Category = budget.Category;
-        await _context.SaveChangesAsync();
-        return NoContent();
-    }
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> UpdateBudget(int taskId, int id, [FromBody] Budget budget)
+        {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
 
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteBudget(string taskId, string id)
-    {
-        if (!int.TryParse(taskId, out int parsedTaskId) || !int.TryParse(id, out int budgetId))
-            return BadRequest("Invalid task ID or budget ID.");
+            var existingBudget = await _context.Budgets
+                .FirstOrDefaultAsync(b => b.TaskId == taskId && b.Id == id && b.UserId == userId);
+            if (existingBudget == null)
+                return NotFound();
 
-        var budget = await _context.Budgets
-            .FirstOrDefaultAsync(b => b.TaskId == parsedTaskId && b.Id == budgetId);
-        if (budget == null)
-            return NotFound();
+            existingBudget.Amount = budget.Amount;
+            existingBudget.Category = budget.Category;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
 
-        _context.Budgets.Remove(budget);
-        await _context.SaveChangesAsync();
-        return NoContent();
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> DeleteBudget(int taskId, int id)
+        {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
+
+            var budget = await _context.Budgets
+                .FirstOrDefaultAsync(b => b.TaskId == taskId && b.Id == id && b.UserId == userId);
+            if (budget == null)
+                return NotFound();
+
+            _context.Budgets.Remove(budget);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        private int? GetUserIdFromToken()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            return userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId) ? userId : null;
+        }
     }
 }

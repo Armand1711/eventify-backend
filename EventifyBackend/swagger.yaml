@@ -38,6 +38,14 @@ components:
           format: date-time
         userId:
           type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        archived:
+          type: boolean
       required:
         - id
         - title
@@ -59,6 +67,14 @@ components:
           type: integer
         userId:
           type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        archived:
+          type: boolean
       required:
         - id
         - title
@@ -100,6 +116,12 @@ components:
           format: date-time
         userId:
           type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
       required:
         - id
         - eventId
@@ -288,13 +310,22 @@ paths:
                 $ref: '#/components/schemas/Event'
         '401':
           description: Unauthorized
+        '400':
+          description: Bad request (e.g., missing required fields)
         '500':
           description: Server error
     get:
       summary: Get all events
-      description: Retrieve all events for the authenticated user.
+      description: Retrieve all events for the authenticated user (optionally include archived).
       security:
         - BearerAuth: []
+      parameters:
+        - in: query
+          name: includeArchived
+          schema:
+            type: boolean
+          required: false
+          description: Whether to include archived events
       responses:
         '200':
           description: Events retrieved successfully
@@ -359,6 +390,9 @@ paths:
                 date:
                   type: string
                   format: date-time
+              required:
+                - title
+                - date
       responses:
         '200':
           description: Event updated successfully
@@ -396,7 +430,7 @@ paths:
   /api/events/{eventId}/tasks:
     post:
       summary: Create a task for an event
-      description: Create a new task for a specific event.
+      description: Create a new task for a specific event and assign it to a user by email.
       security:
         - BearerAuth: []
       parameters:
@@ -417,10 +451,14 @@ paths:
                 description:
                   type: string
                 dueDate:
-                  type: Due DateTime
+                  type: string
                   format: date-time
+                assignedEmail:
+                  type: string
+                  description: Email of the user to assign the task to
               required:
                 - title
+                - assignedEmail
       responses:
         '201':
           description: Task created successfully
@@ -432,6 +470,8 @@ paths:
           description: Unauthorized
         '404':
           description: Event not found
+        '400':
+          description: Bad request (e.g., invalid email or missing fields)
         '500':
           description: Server error
     get:
@@ -685,6 +725,9 @@ paths:
                 amount:
                   type: number
                   format: float
+              required:
+                - category
+                - amount
       responses:
         '200':
           description: Budget updated successfully
@@ -725,7 +768,7 @@ paths:
           description: Server error
 
   /api/events/{eventId}/archive:
-    post:
+    put:
       summary: Archive an event
       description: Archive a specific event by its ID.
       security:
@@ -737,12 +780,8 @@ paths:
           schema:
             type: integer
       responses:
-        '201':
+        '204':
           description: Event archived successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Archive'
         '401':
           description: Unauthorized
         '404':
