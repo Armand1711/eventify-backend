@@ -1,37 +1,40 @@
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace EventifyBackend.Models
+namespace EventifyBackend.Models;
+
+public class Event
 {
-    public class Event
-    {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; set; }
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public int Id { get; set; }
 
-        [Required]
-        public string Title { get; set; } = string.Empty;
+    [Required]
+    [Column("title")]
+    public string Title { get; set; } = string.Empty;
 
-        public string? Description { get; set; }
+    [Column("description")]
+    public string? Description { get; set; }
 
-        [Required]
-        public DateTime Date { get; set; }
+    [Required]
+    [Column("date")]
+    public DateTime? Date { get; set; }
 
-        [Required]
-        public int UserId { get; set; }
+    [Required]
+    [Column("userId")]
+    public int UserId { get; set; }
 
-        [ForeignKey("UserId")]
-        public User? User { get; set; }
+    [ForeignKey("UserId")]
+    public User? User { get; set; }
 
-        public DateTime CreatedAt { get; set; }
+    public ICollection<EventTasks>? Tasks { get; set; }
 
-        public DateTime UpdatedAt { get; set; }
+    [Column("createdAt")]
+    public DateTime CreatedAt { get; set; }
 
-        public bool Archived { get; set; } = false;
+    [Column("updatedAt")]
+    public DateTime UpdatedAt { get; set; }
 
-        // Navigation property, optional if managed separately
-        public ICollection<EventTasks>? Tasks { get; set; }
-    }
+    [Column("archived")]
+    public bool Archived { get; set; } = false;
 }

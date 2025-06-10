@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace EventifyBackend.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/eventrequests")]
     [ApiController]
     public class EventRequestsController : ControllerBase
     {
@@ -24,7 +24,7 @@ namespace EventifyBackend.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> PostEventRequest([FromBody] EventifyBackend.Models.EventRequest eventRequest)
+        public async Task<IActionResult> PostEventRequest([FromBody] EventRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -32,34 +32,34 @@ namespace EventifyBackend.Controllers
                 return BadRequest(ModelState);
             }
 
-            eventRequest.Id = 0;
-            eventRequest.CreatedAt = DateTime.UtcNow;
-            eventRequest.UpdatedAt = DateTime.UtcNow;
+            request.Id = 0;
+            request.CreatedAt = DateTime.UtcNow;
+            request.UpdatedAt = DateTime.UtcNow;
 
-            if (string.IsNullOrWhiteSpace(eventRequest.Status))
-                eventRequest.Status = "Pending";
+            if (string.IsNullOrWhiteSpace(request.Status))
+                request.Status = "Pending";
 
-            _context.EventRequests.Add(eventRequest);
+            _context.EventRequests.Add(request);
             try
             {
                 await _context.SaveChangesAsync();
-                return CreatedAtAction(nameof(GetEventRequest), new { id = eventRequest.Id }, eventRequest);
+                return CreatedAtAction(nameof(GetEventRequest), new { id = request.Id }, request);
             }
             catch (DbUpdateException dbEx)
             {
-                _logger.LogError(dbEx, "Database update error while saving EventRequest: {@EventRequest}", eventRequest);
+                _logger.LogError(dbEx, "Database update error while saving EventRequest: {@EventRequest}", request);
                 return StatusCode(500, new { error = "Database update error", details = dbEx.InnerException?.Message ?? dbEx.Message });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Internal server error while saving EventRequest: {@EventRequest}", eventRequest);
+                _logger.LogError(ex, "Internal server error while saving EventRequest: {@EventRequest}", request);
                 return StatusCode(500, new { error = "Internal server error", details = ex.Message });
             }
         }
 
         [HttpGet]
         [Authorize]
-        public async Task<ActionResult<IEnumerable<EventifyBackend.Models.EventRequest>>> GetEventRequests()
+        public async Task<ActionResult<IEnumerable<EventRequest>>> GetEventRequests()
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
@@ -71,7 +71,7 @@ namespace EventifyBackend.Controllers
 
         [HttpGet("{id}")]
         [Authorize]
-        public async Task<ActionResult<EventifyBackend.Models.EventRequest>> GetEventRequest(int id)
+        public async Task<ActionResult<EventRequest>> GetEventRequest(int id)
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
@@ -79,7 +79,7 @@ namespace EventifyBackend.Controllers
 
             var eventRequest = await _context.EventRequests.FirstOrDefaultAsync(er => er.Id == id);
             if (eventRequest == null)
-                return NotFound(new { error = "Event request not found" });
+                return NotFound();
 
             return Ok(eventRequest);
         }
@@ -90,11 +90,11 @@ namespace EventifyBackend.Controllers
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
-                return Unauthorized(new { error = "User not authenticated" });
+                return Unauthorized("User not authenticated");
 
             var request = await _context.EventRequests.FirstOrDefaultAsync(er => er.Id == id);
             if (request == null)
-                return NotFound(new { error = "Event request not found" });
+                return NotFound();
 
             request.Status = "Accepted";
             request.UserId = userId;
@@ -130,11 +130,11 @@ namespace EventifyBackend.Controllers
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
-                return Unauthorized(new { error = "User not authenticated" });
+                return Unauthorized("User not authenticated");
 
             var request = await _context.EventRequests.FirstOrDefaultAsync(er => er.Id == id);
             if (request == null)
-                return NotFound(new { error = "Event request not found" });
+                return NotFound();
 
             _context.EventRequests.Remove(request);
             try

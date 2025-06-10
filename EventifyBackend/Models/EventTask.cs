@@ -1,51 +1,53 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace EventifyBackend.Models
+namespace EventifyBackend.Models;
+
+public class EventTasks
 {
-    public class EventTasks
-    {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; set; }
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public int Id { get; set; }
 
-        [Required]
-        [Column("title")]
-        public string Title { get; set; } = string.Empty;
+    [Required]
+    [Column("title")]
+    public string Title { get; set; } = string.Empty;
 
-        [Column("priority")]
-        public string? Priority { get; set; }
+    [Column("priority")]
+    public string? Priority { get; set; }
 
-        [Column("completed")]
-        public bool Completed { get; set; } = false;
+    [Column("budget")]
+    public decimal? Budget { get; set; }
 
-        [Column("description")]
-        public string? Description { get; set; }
+    [Column("completed")]
+    public bool Completed { get; set; } = false;
 
-        [Column("dueDate")]
-        public DateTime? DueDate { get; set; }
+    [Column("description")]
+    public string? Description { get; set; }
 
-        [Required]
-        [Column("eventId")]
-        public int EventId { get; set; }
+    [Column("dueDate")]
+    public DateTime? DueDate { get; set; }
 
-        [ForeignKey("EventId")]
-        public Event? Event { get; set; }
+    [Required]
+    [Column("eventId")]
+    public int EventId { get; set; }
 
-        [Required]
-        [Column("userId")]
-        public int UserId { get; set; }
+    [ForeignKey("EventId")]
+    public Event? Event { get; set; }
 
-        [ForeignKey("UserId")]
-        public User? AssignedUser { get; set; }
+    [Required]
+    [Column("userId")]
+    public int UserId { get; set; }
 
-        [Column("createdAt")]
-        public DateTime CreatedAt { get; set; }
+    [ForeignKey("UserId")]
+    public User? AssignedUser { get; set; }
 
-        [Column("updatedAt")]
-        public DateTime UpdatedAt { get; set; }
+    [Column("createdAt")]
+    public DateTime CreatedAt { get; set; }
 
-        [Column("archived")]
-        public bool Archived { get; set; } = false;
-    }
+    [Column("updatedAt")]
+    public DateTime UpdatedAt { get; set; }
+
+    [Column("archived")]
+    public bool Archived { get; set; } = false;
 }
