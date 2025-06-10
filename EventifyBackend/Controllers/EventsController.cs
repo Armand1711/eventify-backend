@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Models;
 using System.Security.Claims;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -26,15 +25,26 @@ namespace EventifyBackend.Controllers
         // GET: api/events/all -- publicly accessible, returns all events
         [HttpGet("all")]
         [AllowAnonymous]
-        public async Task<ActionResult<IEnumerable<Event>>> GetAllEvents()
+        public async Task<ActionResult<IEnumerable<EventResponse>>> GetAllEvents()
         {
-            var events = await _context.Events.ToListAsync();
+            var events = await _context.Events
+                .Select(e => new EventResponse
+                {
+                    Id = e.Id,
+                    Title = e.Title,
+                    Description = e.Description,
+                    Date = e.Date,
+                    CreatedAt = e.CreatedAt,
+                    UpdatedAt = e.UpdatedAt,
+                    Archived = e.Archived
+                }).ToListAsync();
+
             return Ok(events);
         }
 
         // GET: api/events -- authorized users only, returns user-specific events
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Event>>> GetUserEvents([FromQuery] bool includeArchived = false)
+        public async Task<ActionResult<IEnumerable<EventResponse>>> GetUserEvents([FromQuery] bool includeArchived = false)
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
@@ -45,13 +55,23 @@ namespace EventifyBackend.Controllers
             if (!includeArchived)
                 query = query.Where(e => !e.Archived);
 
-            var events = await query.ToListAsync();
+            var events = await query.Select(e => new EventResponse
+            {
+                Id = e.Id,
+                Title = e.Title,
+                Description = e.Description,
+                Date = e.Date,
+                CreatedAt = e.CreatedAt,
+                UpdatedAt = e.UpdatedAt,
+                Archived = e.Archived
+            }).ToListAsync();
+
             return Ok(events);
         }
 
-        // GET: api/events/{id} -- any authenticated user can view event (without full Tasks)
+        // GET: api/events/{id} -- any authenticated user can view event (no circular refs)
         [HttpGet("{id}")]
-        public async Task<ActionResult<Event>> GetEvent(int id)
+        public async Task<ActionResult<EventResponse>> GetEvent(int id)
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
@@ -61,19 +81,17 @@ namespace EventifyBackend.Controllers
             }
 
             var evt = await _context.Events
-                .Select(e => new Event
+                .Where(e => e.Id == id)
+                .Select(e => new EventResponse
                 {
                     Id = e.Id,
                     Title = e.Title,
                     Description = e.Description,
                     Date = e.Date,
-                    UserId = e.UserId,
                     CreatedAt = e.CreatedAt,
                     UpdatedAt = e.UpdatedAt,
                     Archived = e.Archived
-                    // Exclude Tasks to avoid circular reference
-                })
-                .FirstOrDefaultAsync(e => e.Id == id);
+                }).FirstOrDefaultAsync();
 
             if (evt == null)
             {
@@ -86,7 +104,7 @@ namespace EventifyBackend.Controllers
 
         // POST: api/events -- authorized users only
         [HttpPost]
-        public async Task<ActionResult<Event>> CreateEvent([FromBody] EventRequest eventRequest)
+        public async Task<ActionResult<EventResponse>> CreateEvent([FromBody] EventRequest eventRequest)
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
@@ -103,14 +121,26 @@ namespace EventifyBackend.Controllers
                 UserId = userId.Value,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                Archived = false // Default value
+                Archived = false
             };
 
             _context.Events.Add(evt);
             try
             {
                 await _context.SaveChangesAsync();
-                return CreatedAtAction(nameof(GetEvent), new { id = evt.Id }, evt);
+
+                var response = new EventResponse
+                {
+                    Id = evt.Id,
+                    Title = evt.Title,
+                    Description = evt.Description,
+                    Date = evt.Date,
+                    CreatedAt = evt.CreatedAt,
+                    UpdatedAt = evt.UpdatedAt,
+                    Archived = evt.Archived
+                };
+
+                return CreatedAtAction(nameof(GetEvent), new { id = evt.Id }, response);
             }
             catch (DbUpdateException ex)
             {
@@ -132,5 +162,17 @@ namespace EventifyBackend.Controllers
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
         public DateTime Date { get; set; }
+    }
+
+    // Response model to avoid circular reference and Swagger errors
+    public class EventResponse
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public DateTime Date { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public bool Archived { get; set; }
     }
 }
