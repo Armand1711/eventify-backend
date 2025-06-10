@@ -3,176 +3,96 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Models;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 
 namespace EventifyBackend.Controllers
 {
     [Route("api/events")]
     [ApiController]
-    [Authorize] // Require JWT bearer token for all actions by default
+    [Authorize]
     public class EventsController : ControllerBase
     {
         private readonly EventifyDbContext _context;
-        private readonly ILogger<EventsController> _logger;
 
-        public EventsController(EventifyDbContext context, ILogger<EventsController> logger)
+        public EventsController(EventifyDbContext context)
         {
             _context = context;
-            _logger = logger;
         }
 
-        // GET: api/events/all -- publicly accessible, returns all events
-        [HttpGet("all")]
-        [AllowAnonymous]
-        public async Task<ActionResult<IEnumerable<EventResponse>>> GetAllEvents()
-        {
-            var events = await _context.Events
-                .Select(e => new EventResponse
-                {
-                    Id = e.Id,
-                    Title = e.Title,
-                    Description = e.Description,
-                    Date = e.Date,
-                    CreatedAt = e.CreatedAt,
-                    UpdatedAt = e.UpdatedAt,
-                    Archived = e.Archived
-                }).ToListAsync();
-
-            return Ok(events);
-        }
-
-        // GET: api/events -- authorized users only, returns user-specific events
+        // GET: api/events -- get all events for authenticated user
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<EventResponse>>> GetUserEvents([FromQuery] bool includeArchived = false)
+        public async Task<ActionResult<IEnumerable<Event>>> GetUserEvents()
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
-                return Problem(detail: "User not authenticated", statusCode: StatusCodes.Status401Unauthorized);
+                return Unauthorized("User not authenticated");
 
-            var query = _context.Events.Where(e => e.UserId == userId);
-
-            if (!includeArchived)
-                query = query.Where(e => !e.Archived);
-
-            var events = await query.Select(e => new EventResponse
-            {
-                Id = e.Id,
-                Title = e.Title,
-                Description = e.Description,
-                Date = e.Date,
-                CreatedAt = e.CreatedAt,
-                UpdatedAt = e.UpdatedAt,
-                Archived = e.Archived
-            }).ToListAsync();
+            var events = await _context.Events
+                .Where(e => e.UserId == userId)
+                .ToListAsync();
 
             return Ok(events);
         }
 
-        // GET: api/events/{id} -- any authenticated user can view event (no circular refs)
+        // GET: api/events/{id} -- get event by id
         [HttpGet("{id}")]
-        public async Task<ActionResult<EventResponse>> GetEvent(int id)
+        public async Task<ActionResult<Event>> GetEvent(int id)
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
-            {
-                _logger.LogWarning("User not authenticated for GetEvent {Id}", id);
-                return Problem(detail: "User not authenticated", statusCode: StatusCodes.Status401Unauthorized);
-            }
+                return Unauthorized("User not authenticated");
 
-            var evt = await _context.Events
-                .Where(e => e.Id == id)
-                .Select(e => new EventResponse
-                {
-                    Id = e.Id,
-                    Title = e.Title,
-                    Description = e.Description,
-                    Date = e.Date,
-                    CreatedAt = e.CreatedAt,
-                    UpdatedAt = e.UpdatedAt,
-                    Archived = e.Archived
-                }).FirstOrDefaultAsync();
-
-            if (evt == null)
-            {
-                _logger.LogWarning("Event not found for Id {Id}", id);
-                return NotFound(new { error = "Event not found" });
-            }
+            var evt = await _context.Events.FindAsync(id);
+            if (evt == null || evt.UserId != userId)
+                return NotFound("Event not found");
 
             return Ok(evt);
         }
 
-        // POST: api/events -- authorized users only
+        // POST: api/events -- create event
         [HttpPost]
-        public async Task<ActionResult<EventResponse>> CreateEvent([FromBody] EventRequest eventRequest)
+        public async Task<ActionResult<Event>> CreateEvent([FromBody] Event eventModel)
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
-                return Problem(detail: "User not authenticated", statusCode: StatusCodes.Status401Unauthorized);
+                return Unauthorized("User not authenticated");
 
-            if (eventRequest == null || string.IsNullOrEmpty(eventRequest.Title) || eventRequest.Date == default)
-                return Problem(detail: "Title and date are required", statusCode: StatusCodes.Status400BadRequest);
+            if (string.IsNullOrEmpty(eventModel.Title) || eventModel.Date == default)
+                return BadRequest("Title and Date are required");
 
-            var evt = new Event
-            {
-                Title = eventRequest.Title,
-                Description = eventRequest.Description,
-                Date = eventRequest.Date,
-                UserId = userId.Value,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                Archived = false
-            };
+            eventModel.UserId = userId.Value;
+            eventModel.CreatedAt = DateTime.UtcNow;
+            eventModel.UpdatedAt = DateTime.UtcNow;
+            eventModel.Archived = false;
 
-            _context.Events.Add(evt);
-            try
-            {
-                await _context.SaveChangesAsync();
+            _context.Events.Add(eventModel);
+            await _context.SaveChangesAsync();
 
-                var response = new EventResponse
-                {
-                    Id = evt.Id,
-                    Title = evt.Title,
-                    Description = evt.Description,
-                    Date = evt.Date,
-                    CreatedAt = evt.CreatedAt,
-                    UpdatedAt = evt.UpdatedAt,
-                    Archived = evt.Archived
-                };
-
-                return CreatedAtAction(nameof(GetEvent), new { id = evt.Id }, response);
-            }
-            catch (DbUpdateException ex)
-            {
-                return StatusCode(500, new { error = "Database update error", details = ex.InnerException?.Message ?? ex.Message });
-            }
+            return CreatedAtAction(nameof(GetEvent), new { id = eventModel.Id }, eventModel);
         }
 
-        // Helper to extract UserId from JWT token claims
+        // DELETE: api/events/{id} -- delete event by id
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteEvent(int id)
+        {
+            var userId = GetUserIdFromToken();
+            if (userId == null)
+                return Unauthorized("User not authenticated");
+
+            var evt = await _context.Events.FindAsync(id);
+            if (evt == null || evt.UserId != userId)
+                return NotFound("Event not found");
+
+            _context.Events.Remove(evt);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        // Helper to get user ID from JWT token
         private int? GetUserIdFromToken()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             return userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId) ? userId : null;
         }
-    }
-
-    // Request model for event creation
-    public class EventRequest
-    {
-        public string Title { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public DateTime Date { get; set; }
-    }
-
-    // Response model to avoid circular reference and Swagger errors
-    public class EventResponse
-    {
-        public int Id { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public DateTime Date { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
-        public bool Archived { get; set; }
     }
 }
