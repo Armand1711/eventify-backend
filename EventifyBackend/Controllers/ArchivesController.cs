@@ -31,18 +31,20 @@ namespace EventifyBackend.Controllers
             if (evt == null)
                 return NotFound(new { error = "Event not found or unauthorized" });
 
-            evt.Archived = true; // Mark as archived instead of deleting
-            evt.UpdatedAt = DateTime.UtcNow;
+            // Mark the event as archived
+            evt.Archived = true;
+            evt.UpdatedAt = DateTime.UtcNow; // Ensure UTC
 
+            // Create archive record
             var archive = new Archive
             {
                 EventId = evt.Id,
                 Title = evt.Title,
                 Description = evt.Description,
-                Date = evt.Date,
+                Date = evt.Date, // Preserve the original event date
                 UserId = userId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow, // Ensure UTC
+                UpdatedAt = DateTime.UtcNow // Ensure UTC
             };
 
             _context.Archives.Add(archive);
