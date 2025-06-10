@@ -9,7 +9,7 @@ namespace EventifyBackend.Controllers
 {
     [Route("api")]
     [ApiController]
-    [Authorize]
+    [Authorize] // Requires authentication but not ownership
     public class ArchivesController : ControllerBase
     {
         private readonly EventifyDbContext _context;
@@ -27,9 +27,9 @@ namespace EventifyBackend.Controllers
                 return Unauthorized(new { error = "User not authenticated" });
 
             var evt = await _context.Events
-                .FirstOrDefaultAsync(e => e.Id == eventId && e.UserId == userId);
+                .FirstOrDefaultAsync(e => e.Id == eventId); // Removed e.UserId == userId to allow any event
             if (evt == null)
-                return NotFound(new { error = "Event not found or unauthorized" });
+                return NotFound(new { error = "Event not found" });
 
             // Mark the event as archived
             evt.Archived = true;
@@ -42,7 +42,7 @@ namespace EventifyBackend.Controllers
                 Title = evt.Title,
                 Description = evt.Description,
                 Date = evt.Date, // Preserve the original event date
-                UserId = userId,
+                UserId = userId, // Set to the authenticated user
                 CreatedAt = DateTime.UtcNow, // Ensure UTC
                 UpdatedAt = DateTime.UtcNow // Ensure UTC
             };
@@ -67,8 +67,7 @@ namespace EventifyBackend.Controllers
                 return Unauthorized(new { error = "User not authenticated" });
 
             var archives = await _context.Archives
-                .Where(a => a.UserId == userId)
-                .ToListAsync();
+                .ToListAsync(); // Removed a.UserId == userId to show all archives
 
             return Ok(archives);
         }
@@ -81,7 +80,7 @@ namespace EventifyBackend.Controllers
                 return Unauthorized(new { error = "User not authenticated" });
 
             var archive = await _context.Archives
-                .FirstOrDefaultAsync(a => a.Id == archiveId && a.UserId == userId);
+                .FirstOrDefaultAsync(a => a.Id == archiveId && a.UserId == userId); // Kept ownership check for specific archive
 
             if (archive == null)
                 return NotFound(new { error = "Archive not found or unauthorized" });
@@ -97,7 +96,7 @@ namespace EventifyBackend.Controllers
                 return Unauthorized(new { error = "User not authenticated" });
 
             var archive = await _context.Archives
-                .FirstOrDefaultAsync(a => a.Id == archiveId && a.UserId == userId);
+                .FirstOrDefaultAsync(a => a.Id == archiveId && a.UserId == userId); // Kept ownership check for deletion
 
             if (archive == null)
                 return NotFound(new { error = "Archive not found or unauthorized" });
