@@ -33,15 +33,15 @@ namespace EventifyBackend.Models
         public string Status { get; set; } = "Pending";
 
         [Column("userId")]
-        public int? UserId { get; set; } // Nullable for unprocessed requests
+        public int? UserId { get; set; }
 
         [ForeignKey("UserId")]
         public User? ProcessedByUser { get; set; }
 
-        [Column("createdAt")]
+        [Column("createdat")]
         public DateTime CreatedAt { get; set; }
 
-        [Column("updatedAt")]
+        [Column("updatedat")]
         public DateTime UpdatedAt { get; set; }
     }
 }

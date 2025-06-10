@@ -32,12 +32,15 @@ namespace EventifyBackend.Controllers
                 return BadRequest(ModelState);
             }
 
-            request.Id = 0;
-            request.CreatedAt = DateTime.UtcNow;
-            request.UpdatedAt = DateTime.UtcNow;
+            // Ignore client-provided Id, createdAt, and updatedAt; set them server-side
+            request.Id = 0; // Ensure new record
+            request.CreatedAt = DateTime.UtcNow; // Override client value
+            request.UpdatedAt = DateTime.UtcNow; // Override client value
 
             if (string.IsNullOrWhiteSpace(request.Status))
+            {
                 request.Status = "Pending";
+            }
 
             _context.EventRequests.Add(request);
             try
@@ -65,7 +68,9 @@ namespace EventifyBackend.Controllers
             if (userId == null)
                 return Unauthorized(new { error = "User not authenticated" });
 
-            var eventRequests = await _context.EventRequests.ToListAsync();
+            var eventRequests = await _context.EventRequests
+                .Where(er => er.UserId == userId || er.UserId == null) // Filter by authenticated user or unprocessed
+                .ToListAsync();
             return Ok(eventRequests);
         }
 
@@ -77,7 +82,8 @@ namespace EventifyBackend.Controllers
             if (userId == null)
                 return Unauthorized(new { error = "User not authenticated" });
 
-            var eventRequest = await _context.EventRequests.FirstOrDefaultAsync(er => er.Id == id);
+            var eventRequest = await _context.EventRequests
+                .FirstOrDefaultAsync(er => er.Id == id && (er.UserId == userId || er.UserId == null));
             if (eventRequest == null)
                 return NotFound();
 
@@ -97,7 +103,7 @@ namespace EventifyBackend.Controllers
                 return NotFound();
 
             request.Status = "Accepted";
-            request.UserId = userId;
+            request.UserId = userId; // Assign the authenticated user
             request.UpdatedAt = DateTime.UtcNow;
 
             var newEvent = new Event
