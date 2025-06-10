@@ -1,8 +1,52 @@
-# Eventify Backend
+# 🎪 Eventify Backend
 
-This is the backend for the Eventify app, built with ASP.NET Core and PostgreSQL.  
-It provides a REST API for managing users, events, tasks, budgets, and archives.
+![GitHub](https://img.shields.io/badge/license-MIT-blue)
+![Swagger](https://img.shields.io/badge/docs-Swagger-green)
+![PostgreSQL](https://img.shields.io/badge/db-PostgreSQL-blue)
+![Node.js](https://img.shields.io/badge/runtime-Node.js-green)
+![Express](https://img.shields.io/badge/framework-Express-lightgrey)
 
+A complete backend system for event management with JWT authentication, CRUD operations, and Swagger documentation.
+
+## Table of Contents
+- [Features](#-features)
+- [Getting Started](#-getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Configuration](#%EF%B8%8F-configuration)
+- [API Documentation](#-api-documentation)
+  - [Authentication](#authentication)
+  - [Events](#events)
+  - [Tasks](#tasks)
+- [Running the Project](#-running-the-project)
+- [Database Schema](#-database-schema)
+- [Testing](#-testing)
+- [Contributors](#-contributors)
+- [License](#-license)
+- [Related Links](#-related-links)
+
+## 📌 Features
+
+✅ **JWT Authentication** - Secure user registration and login system  
+✅ **Swagger UI** - Interactive API documentation  
+✅ **PostgreSQL** - Robust relational database  
+✅ **CRUD Operations** - Full management of events and tasks  
+✅ **Moq Testing** - Comprehensive endpoint testing  
+✅ **RESTful API** - Clean, standardized endpoints  
+✅ **Environment Configuration** - Easy setup via .env file  
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js v18+
+- PostgreSQL v15+
+- npm v9+
+
+### Installation
+1. Clone the repository:
+
+git clone https://github.com/yourusername/eventify-backend.git
+cd eventify-backend
 ---
 
 ## 🚀 Getting Started
@@ -10,8 +54,8 @@ It provides a REST API for managing users, events, tasks, budgets, and archives.
 ### 1. **Prerequisites**
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download)
-- [PostgreSQL](https://www.postgresql.org/download/) (or use the provided cloud connection string)
-- [Visual Studio Code](https://code.visualstudio.com/) (recommended, but not required)
+- [PostgreSQL](https://www.postgresql.org/download/) 
+- [Visual Studio Code](https://code.visualstudio.com/) 
 
 ---
 
