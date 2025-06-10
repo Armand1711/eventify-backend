@@ -90,7 +90,7 @@ namespace EventifyBackend.Controllers
                 return Unauthorized("User not authenticated");
 
             var eventItem = await _context.Events
-                .Where(e => e.Id == id && e.UserId == userId)
+                .Where(e => e.Id == id) // Removed e.UserId == userId to allow any authenticated user
                 .Select(e => new EventDto
                 {
                     Id = e.Id,
@@ -152,7 +152,7 @@ namespace EventifyBackend.Controllers
                 return BadRequest(ModelState);
 
             var eventItem = await _context.Events
-                .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+                .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId); // Kept for creator-only updates
 
             if (eventItem == null)
                 return NotFound();
@@ -175,7 +175,7 @@ namespace EventifyBackend.Controllers
                 return Unauthorized("User not authenticated");
 
             var eventItem = await _context.Events
-                .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+                .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId); // Kept for creator-only deletes
 
             if (eventItem == null)
                 return NotFound();
