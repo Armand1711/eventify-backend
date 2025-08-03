@@ -1,41 +1,56 @@
 using Xunit;
-using Moq;
 using Microsoft.EntityFrameworkCore;
 using EventifyBackend.Controllers;
 using EventifyBackend.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using System;
 using System.Threading.Tasks;
 
 namespace EventifyBackend.Tests
 {
     public class BudgetsControllerTests
     {
-        private readonly Mock<EventifyDbContext> _mockContext;
-        private readonly BudgetsController _controller;
-
-        public BudgetsControllerTests()
+        private BudgetsController GetControllerWithUser(EventifyDbContext context, int userId = 1)
         {
-            _mockContext = new Mock<EventifyDbContext>();
-            _controller = new BudgetsController(_mockContext.Object);
-            var user = new ClaimsPrincipal(new ClaimsIdentity(new Claim[] 
-            { new Claim(ClaimTypes.NameIdentifier, "1") }, "mock"));
-            _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } };
+            var controller = new BudgetsController(context);
+            var user = new ClaimsPrincipal(new ClaimsIdentity(new Claim[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, userId.ToString())
+            }, "mock"));
+            controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = user }
+            };
+            return controller;
         }
 
         [Fact]
         public async Task CreateBudget_ValidRequest_ReturnsCreated()
         {
-            var taskId = 1;
-            var task = new EventTasks { Id = taskId, UserId = 1, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, Archived = false };
+            // Arrange
+            var options = new DbContextOptionsBuilder<EventifyDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+            using var db = new EventifyDbContext(options);
+
+            // Add a task to associate the budget with
+            db.EventTasks.Add(new EventTasks { Id = 1, UserId = 1, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, Archived = false });
+            db.SaveChanges();
+
+            var controller = GetControllerWithUser(db, 1);
             var budget = new Budget { Amount = 100, Category = "Travel" };
-            _mockContext.Setup(c => c.Budgets.Add(It.IsAny<Budget>())).Callback<Budget>(b => b.Id = 1);
-            _mockContext.Setup(c => c.SaveChangesAsync(default)).ReturnsAsync(1);
 
-            var result = await _controller.CreateBudget(taskId, budget);
+            // Act
+            var result = await controller.CreateBudget(1, budget);
 
+            // Assert
             var createdResult = Assert.IsType<CreatedAtActionResult>(result);
+            var returnedBudget = Assert.IsType<Budget>(createdResult.Value);
             Assert.Equal("GetBudget", createdResult.ActionName);
+            Assert.Equal(1, returnedBudget.TaskId);
+            Assert.Equal(1, returnedBudget.UserId);
         }
     }
 }

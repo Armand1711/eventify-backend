@@ -16,7 +16,7 @@ namespace EventifyBackend.Models
         public float Amount { get; set; }
 
         [Column("taskId")]
-        public int TaskId { get; set; } // Link to EventTask
+        public int TaskId { get; set; } 
 
         [Column("userId")]
         public int UserId { get; set; }

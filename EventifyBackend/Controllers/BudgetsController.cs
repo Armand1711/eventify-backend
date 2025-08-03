@@ -99,6 +99,38 @@ namespace EventifyBackend.Controllers
             return NoContent();
         }
 
+        // Returns total budget and used budget for an event
+        [HttpGet("~/api/events/{eventId}/budget-summary")]
+        public async Task<IActionResult> GetEventBudgetSummary(int eventId)
+        {
+            // Get all tasks for the event
+            var tasks = await _context.EventTasks
+                .Where(t => t.EventId == eventId && !t.Archived)
+                .ToListAsync();
+
+            // Sum all budgets 
+            decimal totalBudget = tasks
+                .Where(t => !string.IsNullOrEmpty(t.Budget))
+                .Sum(t => decimal.TryParse(t.Budget.Replace("R", "").Replace(",", "").Trim(), out var b) ? b : 0);
+
+            // Sum budgets for completed tasks
+            decimal usedBudget = tasks
+                .Where(t => t.Completed && !string.IsNullOrEmpty(t.Budget))
+                .Sum(t => decimal.TryParse(t.Budget.Replace("R", "").Replace(",", "").Trim(), out var b) ? b : 0);
+
+            return Ok(new
+            {
+                totalBudget,
+                usedBudget,
+                tasks = tasks.Select(t => new {
+                    t.Id,
+                    t.Title,
+                    t.Completed,
+                    Budget = t.Budget
+                })
+            });
+        }
+
         private int? GetUserIdFromToken()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
