@@ -34,28 +34,36 @@ namespace EventifyBackend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<EventDto>>> GetEvents()
+        public async Task<IActionResult> GetEvents()
         {
-            var userId = GetUserIdFromToken();
-            if (userId == null)
-                return Unauthorized("User not authenticated");
-
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
             var events = await _context.Events
-                .Where(e => e.UserId == userId)
-                .Select(e => new EventDto
-                {
-                    Id = e.Id,
-                    Title = e.Title,
-                    Description = e.Description,
-                    Date = e.Date,
-                    UserId = e.UserId,
-                    CreatedAt = e.CreatedAt,
-                    UpdatedAt = e.UpdatedAt,
-                    Archived = e.Archived
-                })
+                .Where(e => e.UserId == userId && !e.Archived)
+                .Include(e => e.Tasks)
                 .ToListAsync();
 
-            return Ok(events);
+            var eventDtos = events.Select(e =>
+            {
+                decimal totalBudget = e.Tasks
+                    .Where(t => !t.Archived && !string.IsNullOrEmpty(t.Budget))
+                    .Sum(t => decimal.TryParse(t.Budget.Replace("R", "").Replace(",", "").Trim(), out var b) ? b : 0);
+
+                decimal usedBudget = e.Tasks
+                    .Where(t => t.Completed && !t.Archived && !string.IsNullOrEmpty(t.Budget))
+                    .Sum(t => decimal.TryParse(t.Budget.Replace("R", "").Replace(",", "").Trim(), out var b) ? b : 0);
+
+                int progress = totalBudget > 0 ? (int)Math.Round((usedBudget / totalBudget) * 100) : 0;
+
+                return new {
+                    id = e.Id,
+                    title = e.Title,
+                    date = e.Date,
+                    status = e.Tasks.All(t => t.Completed) ? "Completed" : "In Progress",
+                    progress
+                };
+            });
+
+            return Ok(eventDtos);
         }
 
         [HttpGet("all")]
