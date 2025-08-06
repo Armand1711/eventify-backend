@@ -120,6 +120,6 @@ Visit [http://localhost:5256/swagger](http://localhost:5256/swagger) in your bro
 
 ## Need Help?
 
-Reach out to your team lead or post your error message in the team chat for assistance.
+Reach out to the team or post your error message in the team discord chat for assistance.
 
 ---
